@@ -3,6 +3,8 @@
 #include<fstream>
 #include<iostream>
 #include<cstdio>
+#include<stdio.h>
+#include "scanner.h"
 
 using namespace std;
 
@@ -51,52 +53,123 @@ using namespace std;
 #define TYPE_BOOL 283
 
 //other
-#define T_END 349		//EOF
+#define T_EOF 349		//EOF
 #define T_UNKNOWN 350	//unknown token
 
-struct token_type{
-	int type;					//token code
-	//token can only hold one of the data types specified in union type val
-	union {
-		string stringValue; 	//string/identifier
-		int intValue;			//integer
-		double doubleValue;		//double
-	} val;
-	token_type* next;
-};
+Scanner::Scanner(string filename){
+	headPtr = nullptr;
+	tailPtr = nullptr;
+	fPtr = fopen(filename,"r");
+	if (fPtr == NULL){
+		cout << "No file exists!" << endl;
+		~Scanner();
+	}
+	else{
+		headPtr = new token_type;
+		tailPtr = headPtr;
+		while(ScanOneToken(fPtr, tailPtr) == 1){
+			tailPtr->next = new token_type;
+			tailPtr = tailPtr->next;
+		}
+		PrintTokens();
+	}
+}
 
+Scanner::~Scanner(){
+	tailPtr = nullptr;
+	while(headPtr != nullptr){
+		tailPtr = headPtr->next;
+		headPtr->next = nullptr;
+		headPtr = tailPtr;		
+	}
+	tailPtr = nullptr;
+	headPtr = nullptr;	
+	fclose(fPtr);
+}
+
+void Scanner::PrintTokens(){
+	token_type *tmpPtr = headPtr;
+	while(tmpPtr != nullptr){
+		cout << tmpPtr->ascii << endl;
+		tmpPtr = tmpPtr->next;
+	}
+}
+
+bool Scanner::isNum(char character){
+	int ascii = (int)character;
+	if ((ascii >= 48) && (ascii <= 57))
+		return true;
+	else
+		return false;
+}
+
+bool Scanner::isLetter(char character){
+	int ascii = (int)character;
+	if (((ascii >= 65) && (ascii <= 90)) || ((ascii >= 97) && (ascii <= 122)))
+		return true;
+	else
+		return false;
+}
+
+bool Scanner::isString(char character){
+	int ascii = (int)character;
+	if (ascii == 34)
+		return true;
+	else
+		return false;
+}
+
+bool Scanner::isChar(char character){
+	int ascii = (int)character;
+	if (ascii == 39)
+		return true;
+	else
+		return false;
+}
+
+bool Scanner::isSingleToken(char character){
+	switch(character){
+		case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']':
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool Scanner::isSpace(char character){
+	int ascii = (int)character;
+	if (ascii <= 32)
+		return true;
+	else
+		return false;
+}
+
+int Scanner::ScanOneToken(FILE *fPtr, struct token_type &token){
+	char ch, nextch;
+	int i;
+	string str = "";
+	do{
+		ch = getc(fPtr);		
+	} while(isSpace(ch));
+	
+	while(!isSpace(ch) && ch != EOF){
+		str.append(ch);
+		ch = getc(fPtr);
+	}
+	token->ascii = str;
+	if(ch == EOF)
+		return 0;
+	else
+		return 1;
+}
+
+/*
 //Map of reserved identifiers
 map<string,int> reserved_table;
-	
-int main()
-{	
-	ifstream myfile;
-	myfile.open("Test.txt")
-	
-	char character;
-	
-	
-	while(myfile){
-		myfile.get(character)
-		cout << ch;
-	}
+*/
 
-	InitScanner();
-	
-	token_type* headPtr = new token_type;
-	token_type* tailPtr = tailPtr;
-	
-	while(ScanOneToken(stdin, &token) != T_END){
-		
-	}
 
-	return 0;
-}
-
-int ScanOneToken(FILE *fp, struct token_type &token){
-	return 0;
-}
-
+/*
 void InitScanner(){	
 	//SINGLE ASCII CHARACTERS
 	reserved_table[";"] = T_SEMICOLON;
@@ -138,52 +211,4 @@ void InitScanner(){
 	//reserved_table[""] = T_END;
 	//reserved_table[""] = T_UNKNOWN;
 }
-
-bool isNum(char character){
-	int ascii = (int)character;
-	if ((ascii >= 48) && (ascii <= 57))
-		return true;
-	else
-		return false;
-}
-
-bool isLetter(char character){
-	int ascii = (int)character;
-	if (((ascii >= 65) && (ascii <= 90)) || ((ascii >= 97) && (ascii <= 122)))
-		return true;
-	else
-		return false;
-}
-
-bool isString(char character){
-	int ascii = (int)character;
-	if (ascii == 32)
-		return true;
-	else
-		return false;
-}
-
-bool isChar(char character){
-	int ascii = (int)character;
-	if (ascii == 39)
-		return true;
-	else
-		return false;
-}
-
-bool isSingleToken(char character){
-	switch(character){
-		case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']':
-			return true;
-		default:
-			return false;
-	}
-}
-
-bool isSpace(char character){
-	int ascii = (int)character;
-	if (ascii <= 32)
-		return true;
-	else
-		return false;
-}
+*/
