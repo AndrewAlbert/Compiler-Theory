@@ -1,6 +1,7 @@
 #ifndef SCANNER_H
 #define SCANNER_H
-
+#include<string>
+using namespace std;
 class Scanner
 {
 	public:
@@ -17,7 +18,7 @@ class Scanner
 		struct token_type{
 			int type;
 			union {
-				//string stringValue; 
+				char stringValue[256]; 
 				int intValue;			
 				double doubleValue;	
 			} val;
@@ -27,6 +28,6 @@ class Scanner
 		FILE * fPtr;
 		token_type *headPtr;
 		token_type *tailPtr;
-		int ScanOneToken(FILE * fPtr, struct token_type &token);		
-}
+		int ScanOneToken(FILE * fPtr, token_type *token);		
+};
 #endif

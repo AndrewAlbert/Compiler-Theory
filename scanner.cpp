@@ -1,10 +1,10 @@
+#include "scanner.h"
 #include<string>
-#include<map>
 #include<fstream>
 #include<iostream>
 #include<cstdio>
 #include<stdio.h>
-#include "scanner.h"
+#include<cstddef>
 
 using namespace std;
 
@@ -57,40 +57,43 @@ using namespace std;
 #define T_UNKNOWN 350	//unknown token
 
 Scanner::Scanner(string filename){
-	headPtr = nullptr;
-	tailPtr = nullptr;
-	fPtr = fopen(filename,"r");
+	headPtr = NULL;
+	tailPtr = NULL;
+	fPtr = fopen(filename.c_str(),"r");
 	if (fPtr == NULL){
 		cout << "No file exists!" << endl;
-		~Scanner();
 	}
 	else{
 		headPtr = new token_type;
 		tailPtr = headPtr;
-		while(ScanOneToken(fPtr, tailPtr) == 1){
-			tailPtr->next = new token_type;
-			tailPtr = tailPtr->next;
+		int i = 0;
+		while(ScanOneToken(fPtr, tailPtr)){
+			if(!feof(fPtr)){
+				tailPtr->next = new token_type;
+				tailPtr = tailPtr->next;
+				tailPtr->next = NULL;
+			}
 		}
 		PrintTokens();
 	}
 }
 
 Scanner::~Scanner(){
-	tailPtr = nullptr;
-	while(headPtr != nullptr){
+	tailPtr = NULL;
+	while(headPtr != NULL){
 		tailPtr = headPtr->next;
-		headPtr->next = nullptr;
+		headPtr->next = NULL;
 		headPtr = tailPtr;		
 	}
-	tailPtr = nullptr;
-	headPtr = nullptr;	
+	tailPtr = NULL;
+	headPtr = NULL;	
 	fclose(fPtr);
 }
 
 void Scanner::PrintTokens(){
 	token_type *tmpPtr = headPtr;
-	while(tmpPtr != nullptr){
-		cout << tmpPtr->ascii << endl;
+	while(tmpPtr != NULL){
+		cout << tmpPtr << " " << tmpPtr->ascii << endl;
 		tmpPtr = tmpPtr->next;
 	}
 }
@@ -138,36 +141,69 @@ bool Scanner::isSingleToken(char character){
 
 bool Scanner::isSpace(char character){
 	int ascii = (int)character;
-	if (ascii <= 32)
+	if (ascii <= 32 && character != EOF)
 		return true;
 	else
 		return false;
 }
 
-int Scanner::ScanOneToken(FILE *fPtr, struct token_type &token){
+int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 	char ch, nextch;
-	int i;
 	string str = "";
 	do{
 		ch = getc(fPtr);		
 	} while(isSpace(ch));
-	
-	while(!isSpace(ch) && ch != EOF){
-		str.append(ch);
-		ch = getc(fPtr);
+
+	if(isNum(ch)){
+		str += ch;
+		nextch = getc(fPtr);
+		while(isNum(nextch)){
+			str += nextch;
+			nextch = getc(fPtr);
+		}
+		ungetc(nextch, fPtr);
 	}
-	token->ascii = str;
-	if(ch == EOF)
-		return 0;
+	else if (isString(ch)){
+		str += ch;
+		nextch = getc(fPtr);
+		while(!isString(nextch)){
+			str += nextch;
+			nextch = getc(fPtr);
+		}
+		str += nextch;
+
+	}
+	else if (isChar(ch)){
+		str += ch;
+		nextch = getc(fPtr);
+		while(!isChar(nextch)){
+			str += nextch;
+			nextch = getc(fPtr);
+		}
+		str += nextch;
+	}
+	else if (isLetter(ch)){
+		str += ch;
+		nextch = getc(fPtr);
+		while(isLetter(nextch) || isNum(nextch) || nextch == '_')
+		{
+			str += nextch;
+			nextch = getc(fPtr);
+		}
+			ungetc(nextch, fPtr);
+	}
+	else if (isSingleToken(ch)){
+		str += ch;
+	}
+	else if (ch == EOF) cout << "EOF" << endl;
 	else
-		return 1;
+		cout << "Error, unknown char " << ch << endl;
+
+	token->ascii = str;
+
+	if(feof(fPtr) == 1) return 0;
+	else return 1;
 }
-
-/*
-//Map of reserved identifiers
-map<string,int> reserved_table;
-*/
-
 
 /*
 void InitScanner(){	
