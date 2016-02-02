@@ -1,10 +1,19 @@
-;;, hello 1234 lo12_ procedure+
-= 3.462 1234
-integer array<36>
-& | != >=
-'h'
-"hello"
-// .l;lkdgns test shouldn't print
-should print;
-/* test
-/* succesful */ */
+/*/* program testing */*/
+//comment line
+
+program main is
+
+integer intVar;
+float floatVar;
+string strVar;
+
+begin
+
+intVar = 4;
+floatVar = 8.632;
+
+if(intVar<floatVar) then intVar = intVar/2;
+else floatVar = floatVar/2;
+end if
+end program
+

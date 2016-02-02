@@ -21,6 +21,9 @@ using namespace std;
 #define T_COMMA 308
 #define T_LBRACKET 309
 #define T_RBRACKET 310
+#define T_LCARET 311
+#define T_RCARET 312
+#define T_LOGICAL 313
 
 //reserved keywords
 #define T_PROGRAM 257
@@ -286,8 +289,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 		map<string,int>::iterator it;
 		it = reserved_table.find(str);
 		if (it != reserved_table.end()) return reserved_table.find(str)->second;
-		else return T_UNKNOWN;
-		return TYPE_IDENTIFIER;
+		else return TYPE_IDENTIFIER;
 	}
 	else if (isSingleToken(ch)){
 		str += ch;
@@ -296,7 +298,6 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 			case ';': return T_SEMICOLON;
 			case '(': return T_LPAREN;
 			case ')': return T_RPAREN;
-			case '=': return T_ASSIGN;
 			case '/': return T_DIVIDE;
 			case '*': return T_MULTIPLY;
 			case '+': return T_ADD;
@@ -304,6 +305,30 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 			case ',': return T_COMMA;
 			case '[': return T_LBRACKET;
 			case '}': return T_RBRACKET;
+			case '>': case '<': case '=':
+				ch = getc(fPtr);
+				if (ch == '='){
+					str+=ch;
+					token->ascii = str;
+					return T_LOGICAL;
+				}
+				else{
+					ungetc(ch, fPtr);
+					if (str == "=") return T_ASSIGN;
+					else return T_ASSIGN;
+				}
+			case '!':
+				ch = getc(fPtr);
+				if (ch == '='){
+					str += ch;
+					token->ascii = str;
+					return T_LOGICAL;
+				}
+				else{
+					ungetc(ch,fPtr);
+					return T_UNKNOWN;
+				}
+				
 			default: return T_UNKNOWN;
 		}
 	}
