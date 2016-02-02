@@ -1,25 +1,26 @@
-#include "scanner.h"
 #include<string>
 #include<fstream>
 #include<iostream>
 #include<cstdio>
 #include<stdio.h>
 #include<cstddef>
+#include <map>
+#include"scanner.h"
 
 using namespace std;
 
 //single ASCII character tokens
-#define T_SEMICOLON ";"
-#define T_LPAREN "("
-#define T_RPAREN ")"
-#define T_ASSIGN "="
-#define T_DIVIDE "/"
-#define T_MULTIPLY "*"
-#define T_ADD "+"
-#define T_SUBTRACT "-"
-#define T_COMMA ","
-#define T_LBRACKET "["
-#define T_RBRACKET "]"
+#define T_SEMICOLON 300
+#define T_LPAREN 301
+#define T_RPAREN 302
+#define T_ASSIGN 303
+#define T_DIVIDE 304
+#define T_MULTIPLY 305
+#define T_ADD 306
+#define T_SUBTRACT 307
+#define T_COMMA 308
+#define T_LBRACKET 309
+#define T_RBRACKET 310
 
 //reserved keywords
 #define T_PROGRAM 257
@@ -51,12 +52,15 @@ using namespace std;
 #define TYPE_STRING 281
 #define TYPE_CHAR 282
 #define TYPE_BOOL 283
+#define TYPE_IDENTIFIER 284
 
 //other
+#define T_COMMENT 348
 #define T_EOF 349		//EOF
 #define T_UNKNOWN 350	//unknown token
 
 Scanner::Scanner(string filename){
+	InitScanner();
 	headPtr = NULL;
 	tailPtr = NULL;
 	fPtr = fopen(filename.c_str(),"r");
@@ -66,8 +70,10 @@ Scanner::Scanner(string filename){
 	else{
 		headPtr = new token_type;
 		tailPtr = headPtr;
-		int i = 0;
-		while(ScanOneToken(fPtr, tailPtr)){
+		int identifier = 0;
+		while(identifier != T_EOF){
+			identifier = ScanOneToken(fPtr, tailPtr);
+			tailPtr->type = identifier;
 			if(!feof(fPtr)){
 				tailPtr->next = new token_type;
 				tailPtr = tailPtr->next;
@@ -79,7 +85,6 @@ Scanner::Scanner(string filename){
 }
 
 Scanner::~Scanner(){
-	tailPtr = NULL;
 	while(headPtr != NULL){
 		tailPtr = headPtr->next;
 		headPtr->next = NULL;
@@ -91,9 +96,25 @@ Scanner::~Scanner(){
 }
 
 void Scanner::PrintTokens(){
-	token_type *tmpPtr = headPtr;
+	token_type *tmpPtr = headPtr; 
 	while(tmpPtr != NULL){
-		cout << tmpPtr << " " << tmpPtr->ascii << endl;
+		cout << tmpPtr->type << " " << tmpPtr->ascii << " ";
+		switch(tmpPtr->type){
+			case TYPE_STRING:
+				cout << tmpPtr->val.stringValue << endl;
+				break;
+			case TYPE_CHAR:
+				cout << tmpPtr->val.stringValue[0] << endl;
+				break;
+			case TYPE_INTEGER:
+				cout << tmpPtr->val.intValue << endl;
+				break;
+			case TYPE_FLOAT:
+				cout << tmpPtr->val.doubleValue << endl;
+				break;
+			default:
+				cout << endl;
+		}
 		tmpPtr = tmpPtr->next;
 	}
 }
@@ -132,7 +153,7 @@ bool Scanner::isChar(char character){
 
 bool Scanner::isSingleToken(char character){
 	switch(character){
-		case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']':
+		case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
 			return true;
 		default:
 			return false;
@@ -153,62 +174,147 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 	do{
 		ch = getc(fPtr);		
 	} while(isSpace(ch));
-
-	if(isNum(ch)){
+	
+	//handle comments or divisor token
+	if(ch == '/'){
+		str += ch;
+		nextch = getc(fPtr);
+		if (nextch == '/'){
+			while(nextch != '\n'){
+				str += nextch;
+				nextch = getc(fPtr);
+			}
+			token->ascii = str;
+			return T_COMMENT;
+		}
+		else if (nextch == '*'){
+			str += nextch;
+			int i = 1;
+			while (i > 0){
+				nextch = getc(fPtr);
+				str += nextch;
+				if (nextch == '*'){
+					nextch = getc(fPtr);
+					str += nextch;
+					if(nextch == '/') i -= 1;
+				}
+				else if (nextch == '/'){
+					nextch = getc(fPtr);
+					str += nextch;
+					if(nextch == '*') i += 1;
+				}
+			}
+			token->ascii = str;
+			return T_COMMENT;
+		}
+		else{
+			ungetc(nextch, fPtr);
+			token->ascii = str;
+			return T_DIVIDE;
+		}
+	}
+	//handle integer and float tokens
+	else if(isNum(ch)){
 		str += ch;
 		nextch = getc(fPtr);
 		while(isNum(nextch)){
 			str += nextch;
 			nextch = getc(fPtr);
 		}
-		ungetc(nextch, fPtr);
+		if (nextch == '.'){
+			str+= nextch;
+			nextch = getc(fPtr);
+			while(isNum(nextch)){
+				str += nextch;
+				nextch = getc(fPtr);
+			}
+			token->val.doubleValue = stod(str);
+			token->ascii = str;
+			ungetc(nextch, fPtr);
+			return TYPE_FLOAT;
+		}
+		else {
+			token->val.intValue = stoi(str);
+			token->ascii = str;
+			ungetc(nextch, fPtr);
+			return TYPE_INTEGER;
+		}
 	}
+	//handle string tokens
 	else if (isString(ch)){
 		str += ch;
 		nextch = getc(fPtr);
+		int i = 0;
 		while(!isString(nextch)){
+			token->val.stringValue[i++] = nextch;
 			str += nextch;
 			nextch = getc(fPtr);
 		}
 		str += nextch;
-
+		token->ascii = str;
+		return TYPE_STRING;
 	}
+	//handle char tokens
 	else if (isChar(ch)){
 		str += ch;
 		nextch = getc(fPtr);
+		int i = 0;
 		while(!isChar(nextch)){
+			token->val.stringValue[i++] = nextch;
 			str += nextch;
 			nextch = getc(fPtr);
 		}
 		str += nextch;
+		token->ascii = str;
+		return TYPE_CHAR;
 	}
+	//handle identifier tokens
 	else if (isLetter(ch)){
-		str += ch;
+		int i = 0;
+		token->val.stringValue[i++] = toupper(nextch);
+		str += toupper(ch);
 		nextch = getc(fPtr);
 		while(isLetter(nextch) || isNum(nextch) || nextch == '_')
 		{
-			str += nextch;
+			token->val.stringValue[i++] = toupper(nextch);
+			str += toupper(nextch);
 			nextch = getc(fPtr);
 		}
-			ungetc(nextch, fPtr);
+		ungetc(nextch, fPtr);
+		token->ascii = str;
+		
+		map<string,int>::iterator it;
+		it = reserved_table.find(str);
+		if (it != reserved_table.end()) return reserved_table.find(str)->second;
+		else return T_UNKNOWN;
+		return TYPE_IDENTIFIER;
 	}
 	else if (isSingleToken(ch)){
 		str += ch;
+		token->ascii = str;
+		switch(ch){
+			case ';': return T_SEMICOLON;
+			case '(': return T_LPAREN;
+			case ')': return T_RPAREN;
+			case '=': return T_ASSIGN;
+			case '/': return T_DIVIDE;
+			case '*': return T_MULTIPLY;
+			case '+': return T_ADD;
+			case '-': return T_SUBTRACT;
+			case ',': return T_COMMA;
+			case '[': return T_LBRACKET;
+			case '}': return T_RBRACKET;
+			default: return T_UNKNOWN;
+		}
 	}
-	else if (ch == EOF) cout << "EOF" << endl;
-	else
-		cout << "Error, unknown char " << ch << endl;
-
-	token->ascii = str;
-
-	if(feof(fPtr) == 1) return 0;
-	else return 1;
+	else if (ch == EOF) return T_EOF;
+	else return T_UNKNOWN;
 }
 
-/*
-void InitScanner(){	
+
+int Scanner::InitScanner(){
 	//SINGLE ASCII CHARACTERS
-	reserved_table[";"] = T_SEMICOLON;
+	reserved_table.insert(make_pair(";",T_SEMICOLON));
 	reserved_table["("] = T_LPAREN;
 	reserved_table[")"] = T_RPAREN;
 	reserved_table["="] = T_ASSIGN;
@@ -243,8 +349,6 @@ void InitScanner(){
 	reserved_table["RETURN"] = T_RETURN;
 	reserved_table["TRUE"] = T_TRUE;
 	reserved_table["FALSE"] = T_FALSE;
-	
-	//reserved_table[""] = T_END;
-	//reserved_table[""] = T_UNKNOWN;
+	return 0;
 }
-*/
+

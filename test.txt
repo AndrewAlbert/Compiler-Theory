@@ -1,1 +1,10 @@
-;;, hello 1234 lo12_
+;;, hello 1234 lo12_ procedure+
+= 3.462 1234
+integer array<36>
+& | != >=
+'h'
+"hello"
+// .l;lkdgns test shouldn't print
+should print;
+/* test
+/* succesful */ */
