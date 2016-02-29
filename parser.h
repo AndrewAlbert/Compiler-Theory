@@ -1,6 +1,6 @@
 #ifndef PARSER_H
 #define PARSER_H
-
+#include<string>
 using namespace std;
 
 class Parser
@@ -17,27 +17,28 @@ class Parser
 			string ascii;
 			token_type* next;
 		};
-		void NextToken();
+		void ReportError(string message);
+		bool CheckToken();
 		token_type* token;
 		void Program();
 		void ProgramHeader();
 		void ProgramBody();
 		void Declaration();
 		void Statement();
-		void ProcedureDeclaration();
+		bool ProcedureDeclaration();
 		void ProcedureHeader();
 		void ProcedureBody();
-		void ProcedureCall();
+		bool ProcedureCall();
 		void ArgumentList();
-		void VariableDeclaration();
+		bool VariableDeclaration();
 		void TypeMark();
-		void Parameter();
+		bool Parameter();
 		void ParameterList();
-		void Assignment();
+		bool Assignment();
 		void Destination();
-		void IfStatement();
-		void LoopStatement();
-		void ReturnStatement();
+		bool IfStatement();
+		bool LoopStatement();
+		bool ReturnStatement();
 		void Expression();
 		void ArithOp();
 		void Relation();
