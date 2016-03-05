@@ -2,6 +2,7 @@
 #include<string>
 using namespace std;
 
+//
 Parser::Parser(token_type* headptr){
 	token = headptr;
 	Program();

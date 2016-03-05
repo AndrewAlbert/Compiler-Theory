@@ -20,6 +20,7 @@ class Scanner
 	private:
 		struct token_type{
 			int type;
+			int line;
 			union {
 				char stringValue[256]; 
 				int intValue;			
@@ -28,6 +29,7 @@ class Scanner
 			string ascii;
 			token_type* next;
 		};
+		int line_number;
 		FILE * fPtr;
 		token_type *headPtr;
 		token_type *tailPtr;
@@ -56,6 +58,7 @@ class Scanner
 #define T_LCARET 311
 #define T_RCARET 312
 #define T_LOGICAL 313
+#define T_ASSIGNMENT 314
 
 //reserved keywords
 #define T_PROGRAM 257
