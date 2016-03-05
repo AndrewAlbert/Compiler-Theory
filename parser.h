@@ -1,6 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 #include<string>
+#include "token.h"
 using namespace std;
 
 //
@@ -8,18 +9,8 @@ class Parser
 {
 	private:
 		//token type from scanner
-		struct token_type{
-			int type;
-			union {
-				char stringValue[256]; 
-				int intValue;			
-				double doubleValue;	
-			} val;
-			string ascii;
-			token_type* next;
-		};
 		void ReportError(string message);
-		bool CheckToken();
+		bool CheckToken(int type);
 		token_type* token;
 		void Program();
 		void ProgramHeader();
@@ -27,12 +18,12 @@ class Parser
 		void Declaration();
 		bool Statement();
 		bool ProcedureDeclaration();
-		void ProcedureHeader();
-		void ProcedureBody();
+		bool ProcedureHeader();
+		bool ProcedureBody();
 		bool ProcedureCall();
 		void ArgumentList();
 		bool VariableDeclaration();
-		void TypeMark();
+		bool TypeMark();
 		bool Parameter();
 		void ParameterList();
 		bool Assignment();
@@ -40,15 +31,16 @@ class Parser
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();
-		void Expression();
-		void ArithOp();
-		void Relation();
-		void Term();
-		void Factor();
-		void Name();
-		void Number();
-		void String();
-		void Char();
+		bool Expression();
+		bool ArithOp();
+		bool Relation();
+		bool Term();
+		bool Factor();
+		bool Name();
+		bool Number();
+		bool String();
+		bool Char();
+		bool Identifier();
 	public:
 		Parser(token_type* headPtr);
 		~Parser();
@@ -59,7 +51,7 @@ class Parser
 #define T_SEMICOLON 300
 #define T_LPAREN 301
 #define T_RPAREN 302
-#define T_ASSIGN 303
+#define T_COMPARE 303
 #define T_DIVIDE 304
 #define T_MULTIPLY 305
 #define T_ADD 306
@@ -70,6 +62,7 @@ class Parser
 #define T_LCARET 311
 #define T_RCARET 312
 #define T_LOGICAL 313
+#define T_ASSIGNMENT 314
 
 //reserved keywords
 #define T_PROGRAM 257
@@ -107,3 +100,5 @@ class Parser
 #define T_COMMENT 348
 #define T_EOF 349		//EOF
 #define T_UNKNOWN 350	//unknown token
+
+#endif

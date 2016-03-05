@@ -7,31 +7,15 @@
 #include<cstdio>
 #include<stdio.h>
 #include<cstddef>
+#include "token.h"
 
 using namespace std;
 class Scanner
 {
-	public:
-		Scanner(string filename);
-		virtual ~Scanner();
-		int InitScanner();	
-		map<string,int> reserved_table;
-		void PrintTokens();
 	private:
-		struct token_type{
-			int type;
-			int line;
-			union {
-				char stringValue[256]; 
-				int intValue;			
-				double doubleValue;	
-			} val;
-			string ascii;
-			token_type* next;
-		};
+		token_type *headPtr;
 		int line_number;
 		FILE * fPtr;
-		token_type *headPtr;
 		token_type *tailPtr;
 		
 		int ScanOneToken(FILE * fPtr, token_type *token);
@@ -40,14 +24,22 @@ class Scanner
 		bool isString(char character);
 		bool isChar(char character);
 		bool isSingleToken(char character);
-		bool isSpace(char character);	
+		bool isSpace(char character);
+
+	public:
+		Scanner(string filename);
+		virtual ~Scanner();
+		int InitScanner();	
+		map<string,int> reserved_table;
+		void PrintTokens();	
+		token_type* pass_ptr;
 };
 
 //single ASCII character tokens
 #define T_SEMICOLON 300
 #define T_LPAREN 301
 #define T_RPAREN 302
-#define T_ASSIGN 303
+#define T_COMPARE 303
 #define T_DIVIDE 304
 #define T_MULTIPLY 305
 #define T_ADD 306

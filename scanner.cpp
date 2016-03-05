@@ -4,11 +4,11 @@ using namespace std;
 
 Scanner::Scanner(string filename){
 	InitScanner();
-	headPtr = NULL;
-	tailPtr = NULL;
+	headPtr = nullptr;
+	tailPtr = nullptr;
 	line_number = 1;
 	fPtr = fopen(filename.c_str(),"r");
-	if (fPtr == NULL){
+	if (fPtr == nullptr){
 		cout << "No file exists!" << endl;
 	}
 	else{
@@ -22,21 +22,22 @@ Scanner::Scanner(string filename){
 			if(!feof(fPtr)){
 				tailPtr->next = new token_type;
 				tailPtr = tailPtr->next;
-				tailPtr->next = NULL;
+				tailPtr->next = nullptr;
 			}
 		}
 		PrintTokens();
 	}
+	pass_ptr = headPtr;
 }
 
 Scanner::~Scanner(){
-	while(headPtr != NULL){
+	while(headPtr != nullptr){
 		tailPtr = headPtr->next;
-		headPtr->next = NULL;
+		headPtr->next = nullptr;
 		headPtr = tailPtr;		
 	}
-	tailPtr = NULL;
-	headPtr = NULL;	
+	tailPtr = nullptr;
+	headPtr = nullptr;	
 	fclose(fPtr);
 }
 
@@ -272,7 +273,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 				else{
 					ungetc(ch, fPtr);
 					if (str == "=") return T_UNKNOWN;
-					else return T_ASSIGN;
+					else return T_LOGICAL;
 				}
 			case '!':
 				ch = getc(fPtr);
@@ -300,10 +301,10 @@ int Scanner::InitScanner(){
 	reserved_table["("] = T_LPAREN;
 	reserved_table[")"] = T_RPAREN;
 	reserved_table[":="] = T_ASSIGNMENT;
-	reserved_table[">="] = T_ASSIGN;
-	reserved_table[">"] = T_ASSIGN;
-	reserved_table["<="] = T_ASSIGN;
-	reserved_table["<"] = T_ASSIGN;
+	reserved_table[">="] = T_COMPARE;
+	reserved_table[">"] = T_COMPARE;
+	reserved_table["<="] = T_COMPARE;
+	reserved_table["<"] = T_COMPARE;
 	reserved_table["/"] = T_DIVIDE;
 	reserved_table["*"] = T_MULTIPLY;
 	reserved_table["+"] = T_ADD;
