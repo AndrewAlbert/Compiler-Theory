@@ -4,6 +4,7 @@ using namespace std;
 
 Parser::Parser(token_type* headptr){
 	token = headptr;
+	Program();
 }
 
 Parser::~Parser(){
@@ -16,7 +17,7 @@ void Parser::ReportError(string message){
 	exit(EXIT_FAILURE);
 }
 
-//get next token
+//check if current token is the correct type, if so get next
 bool Parser::CheckToken(int type){
 	if(token->type == type){
 		token = token->next;
@@ -74,13 +75,14 @@ void Parser::Declaration(){
 	}
 }
 
-void Parser::Statement(){
+bool Parser::Statement(){
 	if(Assignment()) Statement();
 	else if(IfStatement()) Statement();
 	else if(LoopStatement()) Statement();
 	else if(ReturnStatement()) Statement();
 	else if(ProcedureCall()) Statement();
-	else return;
+	else return false;
+	return true;
 }
 
 bool Parser::ProcedureDeclaration(){
@@ -184,9 +186,10 @@ void Parser::Destination(){
 	if(CheckToken(TYPE_IDENTIFIER)){
 		if(CheckToken(T_LPAREN){
 			if(Expression()){
-
+				if(CheckToken(T_RPAREN)) return;
+				else ReportError
 			}
-			else ReportError(
+			else ReportError("expected expression");
 		}
 		else return;
 	}
@@ -194,15 +197,66 @@ void Parser::Destination(){
 }
 
 bool Parser::IfStatement(){
-
+	if(CheckToken(T_IF)){
+		if(CheckToken(T_LPAREN)){
+			Expression();
+			if(CheckToken(T_RPAREN)){
+				if(CheckToken(T_THEN)){
+					Statement();
+					if(CheckToken(T_END)){
+						if(CheckToken(T_IF)) return true;
+						else ReportError("expected 'if'");
+					}
+					else ReportError("expected 'end'");
+				}
+				else ReportError("expected 'then'");
+			}
+			else ReportError("expected '('");
+		}
+		else ReportError("expected '('");
+	}
+	else return false;
 }
 
 bool Parser::LoopStatement(){
-
+	if(CheckToken(T_IF)){
+		if(CheckToken(T_LPAREN)){
+			Expression();
+			if(CheckToken(T_RPAREN)){
+				if(CheckToken(T_THEN)){
+					if(Statement()){
+						if(CheckToken(T_ELSE)){
+							if(Statement()){
+								if(CheckToken(T_END){
+									if(CheckToken(T_IF) return true;
+									else ReportError("expected 'if'");
+								}
+								else ReportError("expected 'end'");
+							}
+							else ReportError("expected at least 1 statement after else condition");
+						}
+						else{
+							if(CheckToken(T_END){
+								if(CheckToken(T_IF) return true;
+								else ReportError("expected 'if'");
+							}
+							else ReportError("expected 'end'");
+						}
+					}
+					else ReportError("expected at least 1 statement after if condition");
+				}
+				else ReportError("expected 'then'");
+			}
+			else ReportError("expected ')'");
+		}
+		else ReportError("expeceted '('");
+	}
+	else return false;
 }
 
 bool Parser::ReturnStatement(){
-
+	if(CheckToken(T_RETURN)) return true;
+	else return false;
 }
 
 void Parser::Expression(){

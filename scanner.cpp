@@ -6,6 +6,7 @@ Scanner::Scanner(string filename){
 	InitScanner();
 	headPtr = NULL;
 	tailPtr = NULL;
+	line_number = 1;
 	fPtr = fopen(filename.c_str(),"r");
 	if (fPtr == NULL){
 		cout << "No file exists!" << endl;
@@ -17,6 +18,7 @@ Scanner::Scanner(string filename){
 		while(identifier != T_EOF){
 			identifier = ScanOneToken(fPtr, tailPtr);
 			tailPtr->type = identifier;
+			tailPtr->line = line_number;
 			if(!feof(fPtr)){
 				tailPtr->next = new token_type;
 				tailPtr = tailPtr->next;
@@ -41,7 +43,7 @@ Scanner::~Scanner(){
 void Scanner::PrintTokens(){
 	token_type *tmpPtr = headPtr; 
 	while(tmpPtr != NULL){
-		cout << tmpPtr->type << " " << tmpPtr->ascii << " ";
+		cout << tmpPtr->type << " " << tmpPtr->ascii << " " << tmpPtr->line << " ";
 		switch(tmpPtr->type){
 			case TYPE_STRING:
 				cout << tmpPtr->val.stringValue << endl;
@@ -96,7 +98,7 @@ bool Scanner::isChar(char character){
 
 bool Scanner::isSingleToken(char character){
 	switch(character){
-		case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
+		case ':': case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
 			return true;
 		default:
 			return false;
@@ -105,8 +107,10 @@ bool Scanner::isSingleToken(char character){
 
 bool Scanner::isSpace(char character){
 	int ascii = (int)character;
-	if (ascii <= 32 && character != EOF)
+	if(ascii == 10) line_number++;
+	if (ascii <= 32 && character != EOF){
 		return true;
+	}
 	else
 		return false;
 }
@@ -128,6 +132,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 				nextch = getc(fPtr);
 			}
 			token->ascii = str;
+			line_number++;
 			return T_COMMENT;
 		}
 		else if (nextch == '*'){
@@ -245,6 +250,18 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 			case ',': return T_COMMA;
 			case '[': return T_LBRACKET;
 			case '}': return T_RBRACKET;
+			case ':':
+				ch = getc(fPtr);
+				if (ch == '='){
+					str += ch;
+					token->ascii = str;
+					return T_ASSIGNMENT;
+				}
+				else{
+					ungetc(ch, fPtr);
+					token->ascii = str;
+					return T_UNKNOWN;
+				}
 			case '>': case '<': case '=':
 				ch = getc(fPtr);
 				if (ch == '='){
@@ -254,7 +271,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 				}
 				else{
 					ungetc(ch, fPtr);
-					if (str == "=") return T_ASSIGN;
+					if (str == "=") return T_UNKNOWN;
 					else return T_ASSIGN;
 				}
 			case '!':
@@ -279,10 +296,14 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 
 int Scanner::InitScanner(){
 	//SINGLE ASCII CHARACTERS
-	reserved_table.insert(make_pair(";",T_SEMICOLON));
+	reserved_table[";"] = T_SEMICOLON;
 	reserved_table["("] = T_LPAREN;
 	reserved_table[")"] = T_RPAREN;
-	reserved_table["="] = T_ASSIGN;
+	reserved_table[":="] = T_ASSIGNMENT;
+	reserved_table[">="] = T_ASSIGN;
+	reserved_table[">"] = T_ASSIGN;
+	reserved_table["<="] = T_ASSIGN;
+	reserved_table["<"] = T_ASSIGN;
 	reserved_table["/"] = T_DIVIDE;
 	reserved_table["*"] = T_MULTIPLY;
 	reserved_table["+"] = T_ADD;
