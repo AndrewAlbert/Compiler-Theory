@@ -27,7 +27,7 @@ class Parser
 		bool Parameter();
 		void ParameterList();
 		bool Assignment();
-		void Destination();
+		bool Destination();
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();

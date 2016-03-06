@@ -3,7 +3,6 @@
 #include<stdlib.h>
 #include<iostream>
 
-
 using namespace std;
 
 /* Constructor for the parser
@@ -36,8 +35,8 @@ bool Parser::CheckToken(int type){
 	while (token->type == T_COMMENT){
 		token = token->next;
 	}
+	//cout << token->ascii << " current type " << token->type << " compare against " << type << " line: " << token->line << endl;
 	if(token->type == type){
-		cout << token->ascii << " current type " << token->type << " compare against " << type << endl;
 		token = token->next;
 		return true;
 	}
@@ -176,13 +175,15 @@ bool Parser::ProcedureBody(){
 
 //<procedure_call> ::= <identifier>( { <argument_list> } )
 bool Parser::ProcedureCall(){
-	Identifier();
-	if(CheckToken(T_LPAREN)){
-		ArgumentList();
-		if(CheckToken(T_RPAREN)) return true;
-		else ReportError("expected ')'");
+	if(Identifier()){
+		if(CheckToken(T_LPAREN)){
+			ArgumentList();
+			if(CheckToken(T_RPAREN)) return true;
+			else ReportError("expected ')'");
+		}
+		else ReportError("expected '('");
 	}
-	else ReportError("expected '('");
+	else return false;
 }
 
 /*	<argument_list> ::=
@@ -228,7 +229,7 @@ bool Parser::TypeMark(){
 	return true;
 }
 
-//<paramter> ::= <variable_declarartion>(in | out | inout)
+//<parameter> ::= <variable_declaration>(in | out | inout)
 bool Parser::Parameter(){
 	if(VariableDeclaration()){
 		if(CheckToken(T_IN));
@@ -251,26 +252,27 @@ void Parser::ParameterList(){
 
 // <assignment_statement> ::= <destination> := <expression>
 bool Parser::Assignment(){
-	Destination();
+	if(!Destination()) return false;
 	if(CheckToken(T_ASSIGNMENT)){
 		Expression();
+		return true;
 	}
 	else ReportError("expected '='");	
 }
 
 //<destination> ::= <identifier> { [<expression] }
-void Parser::Destination(){
+bool Parser::Destination(){
 	if(CheckToken(TYPE_IDENTIFIER)){
-		if(CheckToken(T_LPAREN)){
+		if(CheckToken(T_LBRACKET)){
 			if(Expression()){
-				if(CheckToken(T_RPAREN)) return;
-				else ReportError("expected ')'");
+				if(CheckToken(T_RBRACKET)) return true;
+				else ReportError("expected ']'");
 			}
 			else ReportError("expected expression");
 		}
-		else return;
+		else return true;
 	}
-	else ReportError("expected destination identifier");
+	else return false;
 }
 
 /*	<if_statement> ::=
@@ -285,6 +287,9 @@ bool Parser::IfStatement(){
 			if(CheckToken(T_RPAREN)){
 				if(CheckToken(T_THEN)){
 					Statement();
+					if(CheckToken(T_ELSE)){
+						if(!Statement()) ReportError("expected at least 1 statement after else");
+					}
 					if(CheckToken(T_END)){
 						if(CheckToken(T_IF)) return true;
 						else ReportError("expected 'if'");
@@ -293,7 +298,7 @@ bool Parser::IfStatement(){
 				}
 				else ReportError("expected 'then'");
 			}
-			else ReportError("expected '('");
+			else ReportError("expected ')'");
 		}
 		else ReportError("expected '('");
 	}
@@ -306,39 +311,7 @@ bool Parser::IfStatement(){
  *		end for
  */
 bool Parser::LoopStatement(){
-	if(CheckToken(T_IF)){
-		if(CheckToken(T_LPAREN)){
-			Expression();
-			if(CheckToken(T_RPAREN)){
-				if(CheckToken(T_THEN)){
-					if(Statement()){
-						if(CheckToken(T_ELSE)){
-							if(Statement()){
-								if(CheckToken(T_END)){
-									if(CheckToken(T_IF)) return true;
-									else ReportError("expected 'if'");
-								}
-								else ReportError("expected 'end'");
-							}
-							else ReportError("expected at least 1 statement after else condition");
-						}
-						else{
-							if(CheckToken(T_END)){
-								if(CheckToken(T_IF)) return true;
-								else ReportError("expected 'if'");
-							}
-							else ReportError("expected 'end'");
-						}
-					}
-					else ReportError("expected at least 1 statement after if condition");
-				}
-				else ReportError("expected 'then'");
-			}
-			else ReportError("expected ')'");
-		}
-		else ReportError("expeceted '('");
-	}
-	else return false;
+	return false;
 }
 
 // <return_statement> ::= return
@@ -354,20 +327,23 @@ bool Parser::ReturnStatement(){
  */
 bool Parser::Expression(){
 	if(ArithOp()){
+		while(CheckToken(T_LOGICAL)){
+			if(ArithOp()) continue;
+			else ReportError("expected arithmetic operation");
+		}
 		return true;
 	}
 	else if(CheckToken(T_NOT)){
-		if(ArithOp()) return true;
-		else ReportError("expected arithmetic operation");
-	}
-	else if(Expression()){
-		if(CheckToken(T_LOGICAL)){
-			ArithOp();
+		if(ArithOp()){
+			while(CheckToken(T_LOGICAL)){
+				if(ArithOp()) continue;
+				else ReportError("expected arithmetic operation");
+			}
+			return true;
 		}
 		else ReportError("expected arithmetic operation");
 	}
-	else ReportError("expected valid expression");
-	
+	else return false;
 }
 
 /*	<arithOp> ::=
@@ -377,14 +353,22 @@ bool Parser::Expression(){
  */
 bool Parser::ArithOp(){
 	if(Relation()){
-		return true;
-	}
-	else if(ArithOp()){
-		if(CheckToken(T_ADD) || CheckToken(T_SUBTRACT)){
-			if(Relation()) return true;
-			else ReportError("expected arithmetic operation");
+		bool next = false;
+		if(CheckToken(T_ADD)){
+			next = true;
 		}
-		else ReportError("expected '+' or '-'");
+		else if(CheckToken(T_SUBTRACT)){
+			next = true;
+		}
+		while(next){
+			if(!Relation()) ReportError("expected relation");
+			else{
+				if(CheckToken(T_ADD));
+				else if(CheckToken(T_SUBTRACT));
+				else next = false;
+			}
+		}
+		return true;
 	}
 	else return false;
 }
@@ -400,13 +384,15 @@ bool Parser::ArithOp(){
  */
 bool Parser::Relation(){
 	if(Term()){
-		if(CheckToken(T_COMPARE)){
-			if(Term()) return true;
-			else ReportError("expected term");
+		bool next = false;
+		if(CheckToken(T_COMPARE)) next = true;
+		while(next){
+			if(!Term()) ReportError("expected term");
+			else if(!CheckToken(T_COMPARE)) next = false;
 		}
-		else return true;
+		return true;
 	}
-	else ReportError("expected term"); 
+	else return false; 
 }
 
 /*	<term> ::=
@@ -423,8 +409,8 @@ bool Parser::Term(){
 		while(next){
 			if(!Factor()) ReportError("expected factor");
 
-			if(CheckToken(T_MULTIPLY)) next = true;
-			else if(CheckToken(T_DIVIDE)) next = true;
+			if(CheckToken(T_MULTIPLY));
+			else if(CheckToken(T_DIVIDE));
 			else next = false;
 		}
 		return true;
@@ -442,7 +428,13 @@ bool Parser::Term(){
  *		|true
  */
 bool Parser::Factor(){
-	if(Expression()) return true;
+	if(CheckToken(T_LPAREN)){
+		if(Expression()){
+			if(CheckToken(T_RPAREN)) return true;
+			else ReportError("expected ')'");
+		}
+		else ReportError("expected expression");
+	}
 	else if(CheckToken(T_SUBTRACT)){
 		if(Name()) return true;
 		else if(Number()) return true;

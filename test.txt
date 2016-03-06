@@ -9,11 +9,11 @@ string strVar;
 
 begin
 
-intVar := 4;
-floatVar := 8.632;
+//intVar := 4;
+//floatVar := 8.632;
 
 if(intVar<floatVar) then intVar := intVar/2;
 else floatVar := floatVar/2;
-end if
+end if;
 end program
 
