@@ -15,5 +15,5 @@ begin
 if(intVar<floatVar) then intVar := intVar/2;
 else floatVar := floatVar/2;
 end if;
-end program
+end program .
 

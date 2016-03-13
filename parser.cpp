@@ -47,6 +47,8 @@ bool Parser::CheckToken(int type){
 void Parser::Program(){
 	ProgramHeader();
 	ProgramBody();
+	if(CheckToken(T_PERIOD)) return;
+	else ReportError("expected '.' at end of program");
 }
 
 //<program_header> ::= program <identifier> is
@@ -74,9 +76,7 @@ void Parser::ProgramBody(){
 	if(CheckToken(T_BEGIN)){
 		Statement();
 		if(CheckToken(T_END)){
-			if(CheckToken(T_PROGRAM)){
-				return;
-			}
+			if(CheckToken(T_PROGRAM)) return;
 			else ReportError("expected 'program'");
 		}
 		else ReportError("expected 'end'");

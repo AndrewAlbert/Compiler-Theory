@@ -99,7 +99,7 @@ bool Scanner::isChar(char character){
 
 bool Scanner::isSingleToken(char character){
 	switch(character){
-		case ':': case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
+		case '.': case ':': case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
 			return true;
 		default:
 			return false;
@@ -241,6 +241,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 		str += ch;
 		token->ascii = str;
 		switch(ch){
+			case '.': return T_PERIOD;
 			case ';': return T_SEMICOLON;
 			case '(': return T_LPAREN;
 			case ')': return T_RPAREN;

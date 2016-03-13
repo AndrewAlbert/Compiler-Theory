@@ -5,7 +5,11 @@
 using namespace std;
 
 int main(){
-	string filename = "test.txt";
+	string filename;
+	cout << "enter filename: ";	
+	getline(cin, filename);
+	cout << endl;
+	//filename = "test.txt";
 	Scanner scanner(filename);
 	Parser parser(scanner.pass_ptr);
 	return 0;
