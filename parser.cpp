@@ -27,6 +27,7 @@ Parser::~Parser(){
 //report error line number and descriptive message
 void Parser::ReportError(string message){
 	cout << "Error: " << message << " at line: " << token->line << endl;
+	cout << "Found: " << token->ascii << endl;
 	exit(EXIT_FAILURE);
 }
 
@@ -47,7 +48,10 @@ bool Parser::CheckToken(int type){
 void Parser::Program(){
 	ProgramHeader();
 	ProgramBody();
-	if(CheckToken(T_PERIOD)) return;
+	if(CheckToken(T_PERIOD)){
+		if(CheckToken(T_EOF)) return;
+	}
+	else if(CheckToken(T_EOF)) return;
 	else ReportError("expected '.' at end of program");
 }
 
@@ -115,10 +119,10 @@ void Parser::Declaration(){
  *		|<procedure_call>
  */
 bool Parser::Statement(){
-	if(Assignment());
-	else if(IfStatement());
+	if(IfStatement());
 	else if(LoopStatement());
 	else if(ReturnStatement());
+	else if(Assignment()); //will check for identifier for procedure call as well
 	else if(ProcedureCall());
 	else return false;
 
@@ -145,7 +149,7 @@ bool Parser::ProcedureHeader(){
 			if(CheckToken(T_LPAREN)){
 				ParameterList();
 				if(CheckToken(T_RPAREN)) return true;
-				else ReportError("expected ')'");
+				else ReportError("expected ')' in procedure header");
 			}
 			else return true;
 		}
@@ -175,13 +179,11 @@ bool Parser::ProcedureBody(){
 
 //<procedure_call> ::= <identifier>( { <argument_list> } )
 bool Parser::ProcedureCall(){
-	if(Identifier()){
-		if(CheckToken(T_LPAREN)){
-			ArgumentList();
-			if(CheckToken(T_RPAREN)) return true;
-			else ReportError("expected ')'");
-		}
-		else ReportError("expected '('");
+	//does not check for the identifier since procedure call is only called right before the assignment check which will determine if there is an identifier
+	if(CheckToken(T_LPAREN)){
+		ArgumentList();
+		if(CheckToken(T_RPAREN)) return true;
+		else ReportError("expected ')' in procedure call");
 	}
 	else return false;
 }
@@ -190,10 +192,14 @@ bool Parser::ProcedureCall(){
  *	 <expression> , <argument_list>
  *	|<expression>
  */
-void Parser::ArgumentList(){
-	Expression();
-	if(CheckToken(T_COMMA)) ArgumentList();
-	else return;
+bool Parser::ArgumentList(){
+	if(Expression()){
+		if(CheckToken(T_COMMA)){
+			if(!ArgumentList()) ReportError("expected argument");
+		}
+		return true;
+	}
+	else return false;
 }
 
 //<variable_declarartion> ::= <type_mark><identifier>{ [<array_size>] }
@@ -203,7 +209,7 @@ bool Parser::VariableDeclaration(){
 		if(CheckToken(T_LBRACKET)){
 			if(CheckToken(TYPE_INTEGER)){
 				if(CheckToken(T_RBRACKET)) return true;
-				else ReportError("expected ']'");
+				else ReportError("expected ']' variable declaration");
 			}
 			else ReportError("expected integer array size");
 		}
@@ -246,7 +252,10 @@ bool Parser::Parameter(){
  *		|<parameter>
  */
 void Parser::ParameterList(){
-	if(Parameter()) Parameter();
+	if(Parameter())
+		while(CheckToken(T_COMMA)){
+			if(!Parameter()) ReportError("expected parameter after comma");
+		}
 	else return;
 }
 
@@ -257,7 +266,16 @@ bool Parser::Assignment(){
 		Expression();
 		return true;
 	}
-	else ReportError("expected '='");	
+	else return false;	
+}
+
+bool Parser::LoopAssignment(){
+	if(!Destination()) return false;
+	if(CheckToken(T_ASSIGNMENT)){
+		Expression();
+		return true;
+	}
+	else return false;	
 }
 
 //<destination> ::= <identifier> { [<expression] }
@@ -266,7 +284,7 @@ bool Parser::Destination(){
 		if(CheckToken(T_LBRACKET)){
 			if(Expression()){
 				if(CheckToken(T_RBRACKET)) return true;
-				else ReportError("expected ']'");
+				else ReportError("expected ']' destination");
 			}
 			else ReportError("expected expression");
 		}
@@ -298,9 +316,9 @@ bool Parser::IfStatement(){
 				}
 				else ReportError("expected 'then'");
 			}
-			else ReportError("expected ')'");
+			else ReportError("expected ')' in if statement");
 		}
-		else ReportError("expected '('");
+		else ReportError("expected '(' in if declaration");
 	}
 	else return false;
 }
@@ -311,7 +329,28 @@ bool Parser::IfStatement(){
  *		end for
  */
 bool Parser::LoopStatement(){
-	return false;
+	if(CheckToken(T_FOR)){
+		if(CheckToken(T_LPAREN)){
+			if(LoopAssignment()){
+				if(CheckToken(T_SEMICOLON)){
+					if(Expression()){
+						if(!CheckToken(T_RPAREN)) ReportError("expected ')' in loop assignment");
+						while(Statement());
+						if(CheckToken(T_END)){
+							if(CheckToken(T_FOR)) return true;
+							else ReportError("expected 'FOR' at end of loop statement");
+						}
+						else ReportError("expected 'end for' at end of loop statement");
+					}
+					else ReportError("expected expression in loop assignment");
+				}
+				else ReportError("expected ';' after loop assignment statement");
+			}
+			else ReportError("expected loop assignment statement");
+		}
+		else ReportError("expected '(' in for declaration");
+	}
+	else return false;
 }
 
 // <return_statement> ::= return
@@ -431,7 +470,7 @@ bool Parser::Factor(){
 	if(CheckToken(T_LPAREN)){
 		if(Expression()){
 			if(CheckToken(T_RPAREN)) return true;
-			else ReportError("expected ')'");
+			else ReportError("expected ')' in factor");
 		}
 		else ReportError("expected expression");
 	}
@@ -455,7 +494,7 @@ bool Parser::Name(){
 		if(CheckToken(T_LBRACKET)){
 			if(Expression()){
 				if(CheckToken(T_RBRACKET)) return true;
-				else ReportError("expected ']'");
+				else ReportError("expected ']' name");
 			}
 			else ReportError("expected expression");
 		}

@@ -5,7 +5,6 @@
 #include "macro.h"
 using namespace std;
 
-//
 class Parser
 {
 	private:
@@ -22,12 +21,13 @@ class Parser
 		bool ProcedureHeader();
 		bool ProcedureBody();
 		bool ProcedureCall();
-		void ArgumentList();
+		bool ArgumentList();
 		bool VariableDeclaration();
 		bool TypeMark();
 		bool Parameter();
 		void ParameterList();
 		bool Assignment();
+		bool LoopAssignment();
 		bool Destination();
 		bool IfStatement();
 		bool LoopStatement();
@@ -45,7 +45,6 @@ class Parser
 	public:
 		Parser(token_type* headPtr);
 		~Parser();
-
 };
 
 #endif

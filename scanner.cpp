@@ -99,7 +99,7 @@ bool Scanner::isChar(char character){
 
 bool Scanner::isSingleToken(char character){
 	switch(character){
-		case '.': case ':': case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
+		case '.': case ':': case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '*': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
 			return true;
 		default:
 			return false;
@@ -108,7 +108,7 @@ bool Scanner::isSingleToken(char character){
 
 bool Scanner::isSpace(char character){
 	int ascii = (int)character;
-	if(ascii == 10) line_number++;
+	if(ascii == 10 || ascii == 13) line_number++;
 	if (ascii <= 32 && character != EOF){
 		return true;
 	}
@@ -251,7 +251,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 			case '-': return T_SUBTRACT;
 			case ',': return T_COMMA;
 			case '[': return T_LBRACKET;
-			case '}': return T_RBRACKET;
+			case ']': return T_RBRACKET;
 			case ':':
 				ch = getc(fPtr);
 				if (ch == '='){
