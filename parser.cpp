@@ -51,7 +51,7 @@ bool Parser::CheckToken(int type){
 	else return false;
 }
 
-//clear the variables used when adding/checking to/from the symbol tables
+//clear the variables used when adding/checking to/from the symbol tables for variables
 void Parser::clearScopeVals(){
 	ScopeValue.type = T_UNKNOWN;
 	ScopeValue.size = 0;
@@ -60,6 +60,7 @@ void Parser::clearScopeVals(){
 	ScopeIdentifier = "";
 }
 
+//clear the variables used when adding/checking to/from the symbol tables for procedures -- helps deal with parameter declarations
 void Parser::clearProcVals(){
 	ProcValue.type = T_UNKNOWN;
 	ProcValue.size = 0;
@@ -70,28 +71,23 @@ void Parser::clearProcVals(){
 
 //<program> ::= <program_header><program_body>
 void Parser::Program(){
-	Scopes->newScope(); //SCOPES
+	Scopes->newScope(); //Create new scope for the program
 	ProgramHeader();
 	ProgramBody();
 	if(CheckToken(T_PERIOD)){
-		if(CheckToken(T_EOF)){
-			Scopes->exitScope(); //SCOPES
-			return;
-		}
+		if(CheckToken(T_EOF)) Scopes->exitScope(); //exit program scope once program ends
 	}
-	else if(CheckToken(T_EOF)){
-		Scopes->exitScope(); //SCOPES
-		return;
-	}
+	else if(CheckToken(T_EOF)) Scopes->exitScope(); //exit program scope once program ends
 	else ReportError("expected '.' at end of program");
 }
 
 //<program_header> ::= program <identifier> is
 void Parser::ProgramHeader(){
 	if(CheckToken(T_PROGRAM)){
-		clearScopeVals(); //SCOPES
+		clearScopeVals(); //reset ScopeValue used for adding variables to scope tables
 		if(CheckToken(TYPE_IDENTIFIER)){
-			ScopeIdentifier = prev_token->ascii; //SCOPES
+			//get identifier, type, and global for variable to add to program
+			ScopeIdentifier = prev_token->ascii;
 			ScopeValue.type = TYPE_PROGRAM;
 			ScopeGlobal = true;
 			if(CheckToken(T_IS)){
@@ -112,7 +108,9 @@ void Parser::ProgramHeader(){
  *	end program
  */
 void Parser::ProgramBody(){
+	//get declarations
 	Declaration();
+	//get statements
 	if(CheckToken(T_BEGIN)){
 		Statement();
 		if(CheckToken(T_END)){
@@ -129,10 +127,14 @@ void Parser::ProgramBody(){
  *		|{global} <variable_declaration>
  */
 void Parser::Declaration(){
+	//reset ScopeValue used for adding variables to scope tables
 	clearScopeVals();
+	
+	//determine if symbol declaration is global in scope
 	if(CheckToken(T_GLOBAL)) ScopeGlobal = true;
 	else ScopeGlobal = false;
 
+	//determine type of declaration if one exists. ReportErrors if declaration is bad. Otherwise look for next declaration
 	if(ProcedureDeclaration()){
 		if(CheckToken(T_SEMICOLON)) Declaration();
 		else ReportError("expected ';'");
@@ -142,6 +144,7 @@ void Parser::Declaration(){
 		else ReportError("expected ';'");
 	}
 	else{
+		//if 'global' reserved word was found, then a declaration should exist
 		if(ScopeGlobal) ReportError("expected either procedure or variable declaration after 'global'");
 		else return;
 	}
@@ -155,6 +158,7 @@ void Parser::Declaration(){
  *		|<procedure_call>
  */
 bool Parser::Statement(){
+	//determine type of statement, if one exists
 	if(IfStatement());
 	else if(LoopStatement());
 	else if(ReturnStatement());
@@ -162,6 +166,7 @@ bool Parser::Statement(){
 	else if(ProcedureCall());
 	else return false;
 
+	//check for next valid statement after semicolon
 	if(CheckToken(T_SEMICOLON)){
 		Statement();
 		return true;
@@ -171,6 +176,7 @@ bool Parser::Statement(){
 
 //<procedure_declaration> ::= <procedure_header><procedure_body>
 bool Parser::ProcedureDeclaration(){
+	//get procedure header
 	if(ProcedureHeader()){
 		Scopes->addSymbol(ProcIdentifier, ProcValue, ProcGlobal);
 		Scopes->prevAddSymbol(ProcIdentifier, ProcValue, ProcGlobal);
@@ -186,11 +192,19 @@ bool Parser::ProcedureDeclaration(){
 //<procedure_header> ::= procedure <identifier> ( { <parameter_list> } )
 bool Parser::ProcedureHeader(){
 	if(CheckToken(T_PROCEDURE)){
+		//create new scope for the procedure
 		Scopes->newScope();
-		ProcValue.type = TYPE_PROCEDURE; //SCOPES
+		
+		//set ProcValue type for procedure's identifier to be added to the symbol tables
+		ProcValue.type = TYPE_PROCEDURE;
+		
+		//get procedure identifier and set value to be added to the symbol table
 		if(CheckToken(TYPE_IDENTIFIER)){
-			ProcIdentifier = prev_token->ascii; //SCOPES
+			ProcIdentifier = prev_token->ascii;
+			
+			//get parameter list for for the procedure if it has parameters, parenthesis must be included though
 			if(CheckToken(T_LPAREN)){
+				//
 				ScopeValue.size = ParameterList();
 				if(CheckToken(T_RPAREN)) return true;
 				else ReportError("expected ')' in procedure header");
@@ -209,11 +223,17 @@ bool Parser::ProcedureHeader(){
  *		end procedure
  */
 bool Parser::ProcedureBody(){
+	//get symbol declarations for next procedure
 	Declaration();
+	
+	//get statements for procedure body
 	if(CheckToken(T_BEGIN)){
 		Statement();
 		if(CheckToken(T_END)){
-			if(CheckToken(T_PROCEDURE))	return true;
+			if(CheckToken(T_PROCEDURE)) {
+				CheckToken(T_SEMICOLON); //semicolon at end of procedure body is optional
+				return true;
+			}
 			else ReportError("expected 'procedure'");
 		}
 		else ReportError("expected 'end'");
@@ -248,13 +268,22 @@ bool Parser::ArgumentList(){
 
 //<variable_declarartion> ::= <type_mark><identifier>{ [<array_size>] }
 bool Parser::VariableDeclaration(){
-	if(!TypeMark()) return false;
+	//get variable type, otherwise no variable should be declared
+	int type_mark = TypeMark();
+	if(type_mark != T_UNKNOWN) ScopeValue.type = type_mark;
+	else return false;
+	
+	//get variable identifier
 	if(CheckToken(TYPE_IDENTIFIER)){
+		//set identifier to be added to the symbol table
 		ScopeIdentifier = prev_token->ascii;
+		
 		if(CheckToken(T_LBRACKET)){
 			if(CheckToken(TYPE_INTEGER)){
+				//if variable is an array, get size of the array
 				ScopeValue.size = prev_token->val.intValue;
 				if(CheckToken(T_RBRACKET)){
+					//add array variable to the symbol table
 					Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal);
 					return true;
 				}
@@ -263,6 +292,7 @@ bool Parser::VariableDeclaration(){
 			else ReportError("expected integer array size");
 		}
 		else{
+			//add variable to the symbol table
 			Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal);
 			return true;
 		}
@@ -277,23 +307,25 @@ bool Parser::VariableDeclaration(){
  *		|string
  *		|char
  */
-bool Parser::TypeMark(){
-	if(CheckToken(T_INTEGER)) ScopeValue.type = TYPE_INTEGER;
-	else if(CheckToken(T_FLOAT)) ScopeValue.type = TYPE_FLOAT;
-	else if(CheckToken(T_BOOL)) ScopeValue.type = TYPE_BOOL;
-	else if(CheckToken(T_STRING)) ScopeValue.type = TYPE_STRING;
-	else if(CheckToken(T_CHAR)) ScopeValue.type = TYPE_CHAR;
-	else return false;
-	return true;
+int Parser::TypeMark(){
+	if(CheckToken(T_INTEGER)) return TYPE_INTEGER;
+	else if(CheckToken(T_FLOAT)) return TYPE_FLOAT;
+	else if(CheckToken(T_BOOL)) return TYPE_BOOL;
+	else if(CheckToken(T_STRING)) return TYPE_STRING;
+	else if(CheckToken(T_CHAR)) return TYPE_CHAR;
+	else return T_UNKNOWN;
 }
 
 //<parameter> ::= <variable_declaration>(in | out | inout)
 bool Parser::Parameter(){
 	if(VariableDeclaration()){
-		if(CheckToken(T_IN));
-		else if(CheckToken(T_OUT));
-		else if(CheckToken(T_INOUT));
+		if(CheckToken(T_IN)) ScopeValue.paramType = TYPE_PARAM_IN;
+		else if(CheckToken(T_OUT)) ScopeValue.paramType = TYPE_PARAM_OUT;
+		else if(CheckToken(T_INOUT)) ScopeValue.paramType = TYPE_PARAM_INOUT;
 		else ReportError("expected 'in', 'out', or 'inout'");
+		
+		//add to current scope's parameter list
+		ProcValue.arguments.push_back(ScopeValue);
 		return true;
 	}
 	else return false;
