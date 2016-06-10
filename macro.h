@@ -51,6 +51,14 @@
 #define TYPE_BOOL 283
 #define TYPE_IDENTIFIER 284
 
+//used for type checking and scope only
+#define TYPE_PROGRAM 285
+#define TYPE_PROCEDURE 286
+#define TYPE_PARAM_IN 287
+#define TYPE_PARAM_OUT 288
+#define TYPE_PARAM_INOUT 289
+#define TYPE_PARAM_NULL 290
+
 //other
 #define T_COMMENT 348
 #define T_EOF 349		//EOF

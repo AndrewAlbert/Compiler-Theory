@@ -1,7 +1,13 @@
 #include "scanner.h"
 #include "parser.h"
+#include "macro.h"
+#include "scope.h"
+#include "scopeTracker.h"
+#include "scopeValue.h"
 #include<string>
 #include<iostream>
+#include <cstdio>
+
 using namespace std;
 
 int main(){
@@ -9,8 +15,9 @@ int main(){
 	cout << "enter filename: ";	
 	getline(cin, filename);
 	cout << endl;
-	//filename = "test.txt";
+	scopeTracker* Scopes = new scopeTracker;
+	//Scopes->newFile(recordFile);
 	Scanner scanner(filename);
-	Parser parser(scanner.pass_ptr);
+	Parser parser(scanner.pass_ptr, Scopes);
 	return 0;
 }

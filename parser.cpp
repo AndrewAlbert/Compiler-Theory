@@ -1,4 +1,7 @@
 #include "parser.h"
+#include "scope.h"
+#include "scopeTracker.h"
+#include "scopeValue.h"
 #include<string>
 #include<stdlib.h>
 #include<iostream>
@@ -15,8 +18,10 @@ using namespace std;
  * 	zero or more { }*
  * 	or one or more { }+
  */
-Parser::Parser(token_type* headptr){
+Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	token = headptr;
+	prev_token = nullptr;
+	Scopes = scopes;
 	Program();
 }
 
@@ -34,32 +39,63 @@ void Parser::ReportError(string message){
 //check if current token is the correct type, if so get next
 bool Parser::CheckToken(int type){
 	while (token->type == T_COMMENT){
+		prev_token = token;
 		token = token->next;
 	}
 	//cout << token->ascii << " current type " << token->type << " compare against " << type << " line: " << token->line << endl;
 	if(token->type == type){
+		prev_token = token;
 		token = token->next;
 		return true;
 	}
 	else return false;
 }
 
+//clear the variables used when adding/checking to/from the symbol tables
+void Parser::clearScopeVals(){
+	ScopeValue.type = T_UNKNOWN;
+	ScopeValue.size = 0;
+	ScopeValue.arguments.erase(ScopeValue.arguments.begin(), ScopeValue.arguments.end());
+	ScopeGlobal = false;
+	ScopeIdentifier = "";
+}
+
+void Parser::clearProcVals(){
+	ProcValue.type = T_UNKNOWN;
+	ProcValue.size = 0;
+	ProcValue.arguments.erase(ProcValue.arguments.begin(), ProcValue.arguments.end());
+	ProcGlobal = false;
+	ProcIdentifier = "";
+}
+
 //<program> ::= <program_header><program_body>
 void Parser::Program(){
+	Scopes->newScope(); //SCOPES
 	ProgramHeader();
 	ProgramBody();
 	if(CheckToken(T_PERIOD)){
-		if(CheckToken(T_EOF)) return;
+		if(CheckToken(T_EOF)){
+			Scopes->exitScope(); //SCOPES
+			return;
+		}
 	}
-	else if(CheckToken(T_EOF)) return;
+	else if(CheckToken(T_EOF)){
+		Scopes->exitScope(); //SCOPES
+		return;
+	}
 	else ReportError("expected '.' at end of program");
 }
 
 //<program_header> ::= program <identifier> is
 void Parser::ProgramHeader(){
 	if(CheckToken(T_PROGRAM)){
+		clearScopeVals(); //SCOPES
 		if(CheckToken(TYPE_IDENTIFIER)){
+			ScopeIdentifier = prev_token->ascii; //SCOPES
+			ScopeValue.type = TYPE_PROGRAM;
+			ScopeGlobal = true;
 			if(CheckToken(T_IS)){
+				Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal); 
 				return;
 			}
 			else ReportError("expected 'is'");
@@ -93,9 +129,9 @@ void Parser::ProgramBody(){
  *		|{global} <variable_declaration>
  */
 void Parser::Declaration(){
-	bool global;
-	if(CheckToken(T_GLOBAL)) global = true;
-	else global = false;
+	clearScopeVals();
+	if(CheckToken(T_GLOBAL)) ScopeGlobal = true;
+	else ScopeGlobal = false;
 
 	if(ProcedureDeclaration()){
 		if(CheckToken(T_SEMICOLON)) Declaration();
@@ -106,7 +142,7 @@ void Parser::Declaration(){
 		else ReportError("expected ';'");
 	}
 	else{
-		if(global) ReportError("expected either procedure or variable declaration after 'global'");
+		if(ScopeGlobal) ReportError("expected either procedure or variable declaration after 'global'");
 		else return;
 	}
 }
@@ -136,7 +172,12 @@ bool Parser::Statement(){
 //<procedure_declaration> ::= <procedure_header><procedure_body>
 bool Parser::ProcedureDeclaration(){
 	if(ProcedureHeader()){
-		if(ProcedureBody()) return true;
+		Scopes->addSymbol(ProcIdentifier, ProcValue, ProcGlobal);
+		Scopes->prevAddSymbol(ProcIdentifier, ProcValue, ProcGlobal);
+		if(ProcedureBody()){
+			Scopes->exitScope(); //SCOPES
+			return true;
+		}
 		else ReportError("expected procedure body");
 	}
 	else return false;
@@ -145,13 +186,16 @@ bool Parser::ProcedureDeclaration(){
 //<procedure_header> ::= procedure <identifier> ( { <parameter_list> } )
 bool Parser::ProcedureHeader(){
 	if(CheckToken(T_PROCEDURE)){
+		Scopes->newScope();
+		ProcValue.type = TYPE_PROCEDURE; //SCOPES
 		if(CheckToken(TYPE_IDENTIFIER)){
+			ProcIdentifier = prev_token->ascii; //SCOPES
 			if(CheckToken(T_LPAREN)){
-				ParameterList();
+				ScopeValue.size = ParameterList();
 				if(CheckToken(T_RPAREN)) return true;
 				else ReportError("expected ')' in procedure header");
 			}
-			else return true;
+			else ReportError("expected '(' in procedure header");
 		}
 		else ReportError("expected procedure identifier");
 	}
@@ -206,14 +250,22 @@ bool Parser::ArgumentList(){
 bool Parser::VariableDeclaration(){
 	if(!TypeMark()) return false;
 	if(CheckToken(TYPE_IDENTIFIER)){
+		ScopeIdentifier = prev_token->ascii;
 		if(CheckToken(T_LBRACKET)){
 			if(CheckToken(TYPE_INTEGER)){
-				if(CheckToken(T_RBRACKET)) return true;
+				ScopeValue.size = prev_token->val.intValue;
+				if(CheckToken(T_RBRACKET)){
+					Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal);
+					return true;
+				}
 				else ReportError("expected ']' variable declaration");
 			}
 			else ReportError("expected integer array size");
 		}
-		else return true;
+		else{
+			Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal);
+			return true;
+		}
 	}
 	else ReportError("expected variable identifier");
 }
@@ -226,11 +278,11 @@ bool Parser::VariableDeclaration(){
  *		|char
  */
 bool Parser::TypeMark(){
-	if(CheckToken(T_INTEGER));
-	else if(CheckToken(T_FLOAT));
-	else if(CheckToken(T_BOOL));
-	else if(CheckToken(T_STRING));
-	else if(CheckToken(T_CHAR));
+	if(CheckToken(T_INTEGER)) ScopeValue.type = TYPE_INTEGER;
+	else if(CheckToken(T_FLOAT)) ScopeValue.type = TYPE_FLOAT;
+	else if(CheckToken(T_BOOL)) ScopeValue.type = TYPE_BOOL;
+	else if(CheckToken(T_STRING)) ScopeValue.type = TYPE_STRING;
+	else if(CheckToken(T_CHAR)) ScopeValue.type = TYPE_CHAR;
 	else return false;
 	return true;
 }
@@ -251,12 +303,16 @@ bool Parser::Parameter(){
  *		 <parameter> , <parameter_list>
  *		|<parameter>
  */
-void Parser::ParameterList(){
-	if(Parameter())
+int Parser::ParameterList(){
+	int count = 0;
+	if(Parameter()){
+		count++;
 		while(CheckToken(T_COMMA)){
+			count++;
 			if(!Parameter()) ReportError("expected parameter after comma");
 		}
-	else return;
+	}
+	return count;
 }
 
 // <assignment_statement> ::= <destination> := <expression>

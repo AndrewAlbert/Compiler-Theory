@@ -25,7 +25,7 @@ Scanner::Scanner(string filename){
 				tailPtr->next = nullptr;
 			}
 		}
-		PrintTokens();
+		//PrintTokens();
 	}
 	pass_ptr = headPtr;
 }

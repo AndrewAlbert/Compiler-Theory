@@ -1,8 +1,10 @@
 #ifndef PARSER_H
 #define PARSER_H
-#include<string>
+#include <string>
 #include "token.h"
 #include "macro.h"
+#include "scopeTracker.h"
+#include <cstdio>
 using namespace std;
 
 class Parser
@@ -12,6 +14,21 @@ class Parser
 		void ReportError(string message);
 		bool CheckToken(int type);
 		token_type* token;
+		token_type* prev_token;
+		//Pointer to scope symbol tables
+		scopeTracker* Scopes;
+		//variables to hold info for scope table symbols 
+		scopeValue ScopeValue;
+		scopeValue ProcValue;
+		bool ScopeGlobal;
+		bool ProcGlobal;
+		string ScopeIdentifier;
+		string ProcIdentifier;
+		//private functions to handle manipulating symbol data
+		void clearScopeVals();
+		void clearProcVals();
+		//bool SetSymbol();
+		bool CheckSymbol();
 		void Program();
 		void ProgramHeader();
 		void ProgramBody();
@@ -25,7 +42,7 @@ class Parser
 		bool VariableDeclaration();
 		bool TypeMark();
 		bool Parameter();
-		void ParameterList();
+		int ParameterList();
 		bool Assignment();
 		bool LoopAssignment();
 		bool Destination();
@@ -43,7 +60,7 @@ class Parser
 		bool Char();
 		bool Identifier();
 	public:
-		Parser(token_type* headPtr);
+		Parser(token_type* headPtr, scopeTracker* scopes);
 		~Parser();
 };
 
