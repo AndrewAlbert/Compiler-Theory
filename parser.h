@@ -15,8 +15,10 @@ class Parser
 		bool CheckToken(int type);
 		token_type* token;
 		token_type* prev_token;
+		
 		//Pointer to scope symbol tables
 		scopeTracker* Scopes;
+		
 		//variables to hold info for scope table symbols 
 		scopeValue ScopeValue;
 		scopeValue ProcValue;
@@ -24,9 +26,11 @@ class Parser
 		bool ProcGlobal;
 		string ScopeIdentifier;
 		string ProcIdentifier;
+		
 		//private functions to handle manipulating symbol data
 		void clearScopeVals();
 		void clearProcVals();
+		
 		//bool SetSymbol();
 		bool CheckSymbol();
 		void Program();
