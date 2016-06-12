@@ -88,5 +88,6 @@ struct scopeValue{
 #define T_COMMENT 348
 #define T_EOF 349		//EOF
 #define T_UNKNOWN 350	//unknown token
+#define T_FALSE 0
 
 #endif
