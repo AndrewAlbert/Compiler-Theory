@@ -1,7 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
+
 #include <string>
-#include "token.h"
 #include "macro.h"
 #include "scopeTracker.h"
 #include <cstdio>
