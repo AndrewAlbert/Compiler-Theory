@@ -5,8 +5,6 @@
 #include <map>
 #include <vector>
 #include "macro.h"
-#include "token.h"
-#include "scopeValue.h"
 #include <cstdio>
 
 using namespace std;
