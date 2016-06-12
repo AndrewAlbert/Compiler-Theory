@@ -22,6 +22,8 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	token = headptr;
 	prev_token = nullptr;
 	Scopes = scopes;
+	warning = false;
+	error = false;
 	Program();
 }
 
@@ -33,16 +35,33 @@ Parser::~Parser(){
 void Parser::ReportError(string message){
 	cout << "Error: " << message << " at line: " << token->line << endl;
 	cout << "Found: " << token->ascii << endl;
+	error = true;
 	exit(EXIT_FAILURE);
+}
+
+//report error line number and descriptive message
+void Parser::ReportWarning(string message){
+	string msg = "Warning: " + message + " at line: " + token->line + "\n\tFound: " << token->ascii;
+	warning_queue.push(msg);
+	warning = true;
+}
+
+//display all of the stored warnings after parsing is complete or a fatal error occurs
+void Parser::DisplayWarningQueue(){
+	while(!warning_queue.empty()){
+		cout << warning_queue.front() << endl;
+		warning_queue.pop();
+	}
 }
 
 //check if current token is the correct type, if so get next
 bool Parser::CheckToken(int type){
+	//skip all comment tokens
 	while (token->type == T_COMMENT){
 		prev_token = token;
 		token = token->next;
 	}
-	//cout << token->ascii << " current type " << token->type << " compare against " << type << " line: " << token->line << endl;
+	//check that current token matches input type, if so move to next token
 	if(token->type == type){
 		prev_token = token;
 		token = token->next;
@@ -74,11 +93,10 @@ void Parser::Program(){
 	Scopes->newScope(); //Create new scope for the program
 	ProgramHeader();
 	ProgramBody();
-	if(CheckToken(T_PERIOD)){
-		if(CheckToken(T_EOF)) Scopes->exitScope(); //exit program scope once program ends
-	}
-	else if(CheckToken(T_EOF)) Scopes->exitScope(); //exit program scope once program ends
-	else ReportError("expected '.' at end of program");
+	if(!CheckToken(T_PERIOD)) ReportWarning("expected '.' at end of program");
+	
+	if(CheckToken(T_EOF)) Scopes->exitScope(); //exit program scope once program ends
+	else ReportError("expected end of program");
 }
 
 //<program_header> ::= program <identifier> is
@@ -134,7 +152,7 @@ void Parser::Declaration(){
 	if(CheckToken(T_GLOBAL)) ScopeGlobal = true;
 	else ScopeGlobal = false;
 
-	//determine type of declaration if one exists. ReportErrors if declaration is bad. Otherwise look for next declaration
+	//determine type of declaration, if one exists. ReportErrors if declaration is bad. Otherwise look for next declaration
 	if(ProcedureDeclaration()){
 		if(CheckToken(T_SEMICOLON)) Declaration();
 		else ReportError("expected ';'");
@@ -159,15 +177,15 @@ void Parser::Declaration(){
  */
 bool Parser::Statement(){
 	//determine type of statement, if one exists
-	if(IfStatement());
-	else if(LoopStatement());
-	else if(ReturnStatement());
-	else if(Assignment()); //will check for identifier for procedure call as well
-	else if(ProcedureCall());
+	if( IfStatement() );
+	else if( LoopStatement() );
+	else if( ReturnStatement() );
+	else if( Assignment() ); //will check for identifier for procedure call as well
+	else if( ProcedureCall() );
 	else return false;
 
-	//check for next valid statement after semicolon
-	if(CheckToken(T_SEMICOLON)){
+	//check for another valid statement after semicolon
+	if( CheckToken(T_SEMICOLON) ){
 		Statement();
 		return true;
 	}
@@ -202,9 +220,8 @@ bool Parser::ProcedureHeader(){
 		if(CheckToken(TYPE_IDENTIFIER)){
 			ProcIdentifier = prev_token->ascii;
 			
-			//get parameter list for for the procedure if it has parameters, parenthesis must be included though
+			//get parameter list for the procedure if it has parameters
 			if(CheckToken(T_LPAREN)){
-				//
 				ScopeValue.size = ParameterList();
 				if(CheckToken(T_RPAREN)) return true;
 				else ReportError("expected ')' in procedure header");
@@ -231,7 +248,8 @@ bool Parser::ProcedureBody(){
 		Statement();
 		if(CheckToken(T_END)){
 			if(CheckToken(T_PROCEDURE)) {
-				CheckToken(T_SEMICOLON); //semicolon at end of procedure body is optional
+				//semicolon at end of procedure body is optional
+				if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' at end of procedure body");
 				return true;
 			}
 			else ReportError("expected 'procedure'");
@@ -257,9 +275,9 @@ bool Parser::ProcedureCall(){
  *	|<expression>
  */
 bool Parser::ArgumentList(){
-	if(Expression()){
-		if(CheckToken(T_COMMA)){
-			if(!ArgumentList()) ReportError("expected argument");
+	if( Expression() ){
+		if( CheckToken(T_COMMA) ){
+			if( !ArgumentList() ) ReportError("expected another argument after ','");
 		}
 		return true;
 	}
@@ -316,21 +334,6 @@ int Parser::TypeMark(){
 	else return T_UNKNOWN;
 }
 
-//<parameter> ::= <variable_declaration>(in | out | inout)
-bool Parser::Parameter(){
-	if(VariableDeclaration()){
-		if(CheckToken(T_IN)) ScopeValue.paramType = TYPE_PARAM_IN;
-		else if(CheckToken(T_OUT)) ScopeValue.paramType = TYPE_PARAM_OUT;
-		else if(CheckToken(T_INOUT)) ScopeValue.paramType = TYPE_PARAM_INOUT;
-		else ReportError("expected 'in', 'out', or 'inout'");
-		
-		//add to current scope's parameter list
-		ProcValue.arguments.push_back(ScopeValue);
-		return true;
-	}
-	else return false;
-}
-
 /*	<parameter_list> ::=
  *		 <parameter> , <parameter_list>
  *		|<parameter>
@@ -345,6 +348,21 @@ int Parser::ParameterList(){
 		}
 	}
 	return count;
+}
+
+//<parameter> ::= <variable_declaration>(in | out | inout)
+bool Parser::Parameter(){
+	if(VariableDeclaration()){
+		if(CheckToken(T_IN)) ScopeValue.paramType = TYPE_PARAM_IN;
+		else if(CheckToken(T_OUT)) ScopeValue.paramType = TYPE_PARAM_OUT;
+		else if(CheckToken(T_INOUT)) ScopeValue.paramType = TYPE_PARAM_INOUT;
+		else ReportError("expected 'in', 'out', or 'inout' in parameter declaration");
+		
+		//add to current scope's parameter list
+		ProcValue.arguments.push_back(ScopeValue);
+		return true;
+	}
+	else return false;
 }
 
 // <assignment_statement> ::= <destination> := <expression>
@@ -555,36 +573,36 @@ bool Parser::Term(){
  *		|true
  */
 bool Parser::Factor(){
-	if(CheckToken(T_LPAREN)){
-		if(Expression()){
-			if(CheckToken(T_RPAREN)) return true;
+	if( CheckToken(T_LPAREN) ){
+		if( Expression() ){
+			if( CheckToken(T_RPAREN) ) return true;
 			else ReportError("expected ')' in factor");
 		}
 		else ReportError("expected expression");
 	}
-	else if(CheckToken(T_SUBTRACT)){
-		if(Name()) return true;
-		else if(Number()) return true;
+	else if( CheckToken(T_SUBTRACT) ){
+		if( Name() ) return true;
+		else if( Number() ) return true;
 		else return false;
 	}
-	else if(Name()) return true;
-	else if(Number()) return true;
-	else if(String()) return true;
-	else if(Char()) return true;
-	else if(CheckToken(T_FALSE)) return true;
-	else if(CheckToken(T_TRUE)) return true;
+	else if( Name() ) return true;
+	else if( Number() ) return true;
+	else if( String() ) return true;
+	else if( Char() ) return true;
+	else if( CheckToken(T_FALSE) ) return true;
+	else if( CheckToken(T_TRUE) ) return true;
 	else return false;
 }
 
 // <name> ::= <identifier> { [ <epression> ] }
 bool Parser::Name(){
-	if(Identifier()){
-		if(CheckToken(T_LBRACKET)){
-			if(Expression()){
-				if(CheckToken(T_RBRACKET)) return true;
-				else ReportError("expected ']' name");
+	if( Identifier() ){
+		if( CheckToken(T_LBRACKET) ){
+			if( Expression() ){
+				if( CheckToken(T_RBRACKET) ) return true;
+				else ReportError("expected ']' after expression in name");
 			}
-			else ReportError("expected expression");
+			else ReportError("expected expression between brackets");
 		}
 		else return true;
 	}
@@ -595,6 +613,18 @@ bool Parser::Name(){
 bool Parser::Number(){
 	if(CheckToken(TYPE_INTEGER)) return true;
 	else if(CheckToken(TYPE_FLOAT)) return true;
+	else return false;
+}
+
+// <integer> ::= [0-9][0-9]*
+bool Parser::Integer(){
+	if(CheckToken(TYPE_INTEGER)) return true;
+	else return false;
+}
+
+// <float> ::= [0-9][0-9]*[.[0-9]+]
+bool Parser::Float(){
+	if(CheckToken(TYPE_FLOAT)) return true;
 	else return false;
 }
 
