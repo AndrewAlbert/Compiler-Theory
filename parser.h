@@ -61,12 +61,14 @@ class Parser
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();
-		bool Expression();
-		bool ArithOp();
-		bool Relation();
-		bool Term();
-		bool Factor();
-		bool Name();
+		
+		bool Expression(int &type, int &size);
+		bool ArithOp(int &type, int &size);
+		bool Relation(int &type, int &size);
+		bool Term(int &type, int &size);
+		bool Factor(int &type, int &size);
+		bool Name(int &type, int &size);
+		
 		bool Number();
 		bool Integer();
 		bool Float();
