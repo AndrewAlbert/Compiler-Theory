@@ -5,13 +5,21 @@
 #include "macro.h"
 #include "scopeTracker.h"
 #include <cstdio>
+#include <queue>
 using namespace std;
 
 class Parser
 {
 	private:
-		//token type from scanner
+		//methods and queue used for warning/error reporting in parser
+		queue<string> warning_queue;
+		bool warning;
+		bool error;
 		void ReportError(string message);
+		void ReportWarning(string message);
+		void DisplayWarningQueue();
+		
+		//methods and variable for using the tokens passed from the scanner
 		bool CheckToken(int type);
 		token_type* token;
 		token_type* prev_token;
@@ -60,6 +68,8 @@ class Parser
 		bool Factor();
 		bool Name();
 		bool Number();
+		bool Integer();
+		bool Float();
 		bool String();
 		bool Char();
 		bool Identifier();
