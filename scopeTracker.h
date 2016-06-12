@@ -1,7 +1,6 @@
 #ifndef SCOPETRACKER_H
 #define SCOPETRACKER_H
 
-#include "scopeValue.h"
 #include "scope.h"
 #include "macro.h"
 #include <cstdio>
