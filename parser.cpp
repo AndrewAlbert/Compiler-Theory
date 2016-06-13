@@ -370,7 +370,8 @@ bool Parser::Parameter(){
 bool Parser::Assignment(){
 	if(!Destination()) return false;
 	if(CheckToken(T_ASSIGNMENT)){
-		Expression();
+		int type, size;
+		Expression(type, size);
 		return true;
 	}
 	else return false;	
@@ -379,7 +380,8 @@ bool Parser::Assignment(){
 bool Parser::LoopAssignment(){
 	if(!Destination()) return false;
 	if(CheckToken(T_ASSIGNMENT)){
-		Expression();
+		int type, size;
+		Expression(type, size);
 		return true;
 	}
 	else return false;	
@@ -389,7 +391,8 @@ bool Parser::LoopAssignment(){
 bool Parser::Destination(){
 	if(CheckToken(TYPE_IDENTIFIER)){
 		if(CheckToken(T_LBRACKET)){
-			if(Expression()){
+			int type, size;
+			if(Expression(type, size)){
 				if(CheckToken(T_RBRACKET)) return true;
 				else ReportError("expected ']' destination");
 			}
@@ -408,7 +411,8 @@ bool Parser::Destination(){
 bool Parser::IfStatement(){
 	if(CheckToken(T_IF)){
 		if(CheckToken(T_LPAREN)){
-			Expression();
+			int type, size;
+			Expression(type, size);
 			if(CheckToken(T_RPAREN)){
 				if(CheckToken(T_THEN)){
 					Statement();
@@ -440,7 +444,8 @@ bool Parser::LoopStatement(){
 		if(CheckToken(T_LPAREN)){
 			if(LoopAssignment()){
 				if(CheckToken(T_SEMICOLON)){
-					if(Expression()){
+					int type, size;
+					if(Expression(type, size)){
 						if(!CheckToken(T_RPAREN)) ReportError("expected ')' in loop assignment");
 						while(Statement());
 						if(CheckToken(T_END)){
@@ -475,19 +480,31 @@ bool Parser::Expression(int &type, int &size){
 	int type1, type2, size1, size2;
 	if( ArithOp(type1, size1) ){
 		while( CheckToken(T_LOGICAL) ){
-			if( !ArithOp(type2, size2) ) ReportError("expected arithmetic operation");
+			if( !ArithOp(type2, size2) ) ReportError("expected ArithOp");
+			if( type1 != type2 || type2 != TYPE_INTEGER) ReportError("only integer values allowed for bitwise operators");
 			
+			if( size1 != 0 && size2 != 0 && size1 != size2) ReportError("incompatible array sizes");
+			else if(size2 != 0) size1 = size2;
 		}
+		type = type1;
+		size = size1;
 		return true;
 	}
 	else if( CheckToken(T_NOT) ){
 		if( ArithOp(type1, size1) ){
 			while( CheckToken(T_LOGICAL) ){
-				if( !ArithOp(type2, size2) ) ReportError("expected arithmetic operation");
+				if( !ArithOp(type2, size2) ) ReportError("expected ArithOp");
+				
+				if( type1 != type2 || type2 != TYPE_INTEGER) ReportError("only integer values allowed for bitwise operators");
+				
+				if( size1 != 0 && size2 != 0 && size1 != size2) ReportError("incompatible array sizes");
+				else if(size2 != 0) size1 = size2;
 			}
+			type = type1;
+			size = size1;
 			return true;
 		}
-		else ReportError("expected arithmetic operation");
+		else ReportError("expected ArithOp");
 	}
 	else return false;
 }
