@@ -1,7 +1,7 @@
 #include "parser.h"
 #include "scope.h"
 #include "scopeTracker.h"
-#include "scopeValue.h"
+#include "macro.h"
 #include<string>
 #include<stdlib.h>
 #include<iostream>
@@ -105,11 +105,11 @@ void Parser::ProgramHeader(){
 		clearScopeVals(); //reset ScopeValue used for adding variables to scope tables
 		if(CheckToken(TYPE_IDENTIFIER)){
 			//get identifier, type, and global for variable to add to program
-			ScopeIdentifier = prev_token->ascii;
-			ScopeValue.type = TYPE_PROGRAM;
-			ScopeGlobal = true;
+			//ScopeIdentifier = prev_token->ascii;
+			//ScopeValue.type = TYPE_PROGRAM;
+			//ScopeGlobal = true;
 			if(CheckToken(T_IS)){
-				Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal); 
+				//Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal); 
 				return;
 			}
 			else ReportError("expected 'is'");
@@ -196,10 +196,11 @@ bool Parser::Statement(){
 bool Parser::ProcedureDeclaration(){
 	//get procedure header
 	if(ProcedureHeader()){
+		//add procedure symbol to both its own scope (to allow recursion) and its parent scope
 		Scopes->addSymbol(ProcIdentifier, ProcValue, ProcGlobal);
 		Scopes->prevAddSymbol(ProcIdentifier, ProcValue, ProcGlobal);
 		if(ProcedureBody()){
-			Scopes->exitScope(); //SCOPES
+			Scopes->exitScope();
 			return true;
 		}
 		else ReportError("expected procedure body");
@@ -470,19 +471,19 @@ bool Parser::ReturnStatement(){
  *		|<expression> | <arithOp>
  *		|{ not } <arithOp>
  */
-bool Parser::Expression(){
-	if(ArithOp()){
-		while(CheckToken(T_LOGICAL)){
-			if(ArithOp()) continue;
-			else ReportError("expected arithmetic operation");
+bool Parser::Expression(int &type, int &size){
+	int type1, type2, size1, size2;
+	if( ArithOp(type1, size1) ){
+		while( CheckToken(T_LOGICAL) ){
+			if( !ArithOp(type2, size2) ) ReportError("expected arithmetic operation");
+			
 		}
 		return true;
 	}
-	else if(CheckToken(T_NOT)){
-		if(ArithOp()){
-			while(CheckToken(T_LOGICAL)){
-				if(ArithOp()) continue;
-				else ReportError("expected arithmetic operation");
+	else if( CheckToken(T_NOT) ){
+		if( ArithOp(type1, size1) ){
+			while( CheckToken(T_LOGICAL) ){
+				if( !ArithOp(type2, size2) ) ReportError("expected arithmetic operation");
 			}
 			return true;
 		}
@@ -496,23 +497,32 @@ bool Parser::Expression(){
  *		<arithOp> - <relation>
  *		<relation>
  */
-bool Parser::ArithOp(){
-	if(Relation()){
+bool Parser::ArithOp(int &type, int &size){
+	int type1, type2, size1, size2;
+	if( Relation(type1, size1) ){
 		bool next = false;
 		if(CheckToken(T_ADD)){
+			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations")
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
+			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations")
 			next = true;
 		}
 		while(next){
-			if(!Relation()) ReportError("expected relation");
+			if( !Relation(type2, size2) ) ReportError("expected Relation as part of ArithOp");
+			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations")
 			else{
+				if(size1 != 0 && size2 !=0 && size1 != size2) ReportError("incompatible array sizes");
+				else if(size2 != 0) size1 = size2;
+				
 				if(CheckToken(T_ADD));
 				else if(CheckToken(T_SUBTRACT));
 				else next = false;
 			}
 		}
+		type = type1;
+		size = size1;
 		return true;
 	}
 	else return false;
@@ -527,14 +537,36 @@ bool Parser::ArithOp(){
  *		|<relation> != <term
  *		|<term>
  */
-bool Parser::Relation(){
-	if(Term()){
-		bool next = false;
-		if(CheckToken(T_COMPARE)) next = true;
-		while(next){
-			if(!Term()) ReportError("expected term");
-			else if(!CheckToken(T_COMPARE)) next = false;
+bool Parser::Relation(int &type, int &size){
+	int type1, type2, size1, size2;
+	bool next = false;
+	if( Term(type1, size1) ){
+		if( CheckToken(T_COMPARE) ){
+			if(type1 == TYPE_INTEGER || type1 == TYPE_BOOLEAN){
+				type1 = TYPE_BOOLEAN;
+				next = true;
+			}
+			else ReportError("can only use integers '0' and '1' or booleans for relations");
 		}
+		while(next){
+			//get term 2 for the relation
+			if(!Term(type2, size2)) ReportError("expected term");
+			
+			//check that term 2 is an integer or boolean value
+			if(!(type2 == TYPE_INTEGER || type2 == TYPE_BOOLEAN)) ReportError("can only use integers '0' and '1' or booleans for relations");
+			
+			//if term 1 is an array, check that term 2 is a scalar or an identically sized array
+			if(size1 != 0){
+				if(size2 != 0 && size2 != size1) ReportError("incompatible array size");
+			}
+			//if term 2 is an array, now we are dealing with a problem involving array sizes
+			else if(size2 != 0){
+				size1 = size2;
+			}
+			if(!CheckToken(T_COMPARE)) next = false;
+		}
+		type = type1;
+		size = size1;
 		return true;
 	}
 	else return false; 
@@ -545,18 +577,29 @@ bool Parser::Relation(){
  *		|<term> / <factor>
  *		|<factor>
  */
-bool Parser::Term(){
-	if(Factor()){
+bool Parser::Term(int &type, int &size){
+	int type1, type2, size1, size2;
+	if(Factor(type1, size1)){
 		bool next = false;
 		if(CheckToken(T_MULTIPLY)) next = true;
 		else if(CheckToken(T_DIVIDE)) next = true;
 
-		while(next){
-			if(!Factor()) ReportError("expected factor");
-
-			if(CheckToken(T_MULTIPLY));
-			else if(CheckToken(T_DIVIDE));
-			else next = false;
+		if(next){
+			//only allow arithmetic operations on integers and floats (conversion is allowed between the two)
+			if(!(type1 == TYPE_FLOAT || type1 == TYPE_INTEGER)) ReportError("only integer and float factors allowed preceeding arithmetic operator");
+			while(next){
+				if(!Factor(type2, size2)) ReportError("expected factor");
+				
+				if(!(type2 == TYPE_FLOAT || type2 == TYPE_INTEGER)) ReportError("expected integer or float factor in term after arithmetic operator");
+				else if(size1 == 0 && size2 != 0) size1 = size2;
+				else if(size1 != 0 && size2 != 0 && size1 != size2) ReportError("incompatiable array sizes");
+				
+				if(type1 != TYPE_FLOAT && type2 == TYPE_FLOAT) type1 = type2;
+				
+				if(CheckToken(T_MULTIPLY)) continue;
+				else if(CheckToken(T_DIVIDE)) continue;
+				else next = false;
+			}
 		}
 		return true;
 	}
@@ -572,33 +615,63 @@ bool Parser::Term(){
  *		|false
  *		|true
  */
-bool Parser::Factor(){
+bool Parser::Factor(int &type, int &size){
 	if( CheckToken(T_LPAREN) ){
-		if( Expression() ){
-			if( CheckToken(T_RPAREN) ) return true;
-			else ReportError("expected ')' in factor");
+		if( Expression(type, size) ){
+			if( !CheckToken(T_RPAREN) ) ReportError("expected ')' in factor");
 		}
 		else ReportError("expected expression");
 	}
 	else if( CheckToken(T_SUBTRACT) ){
-		if( Name() ) return true;
-		else if( Number() ) return true;
+		if( Name(type, size) );
+		else if( Integer() ){
+			type = TYPE_INTEGER;
+			size = 0;
+		}
+		else if( Float() ){
+			type = TYPE_FLOAT;
+			size = 0;
+		}
 		else return false;
 	}
-	else if( Name() ) return true;
-	else if( Number() ) return true;
-	else if( String() ) return true;
-	else if( Char() ) return true;
-	else if( CheckToken(T_FALSE) ) return true;
-	else if( CheckToken(T_TRUE) ) return true;
+	else if( Name(type, size) );
+	else if( Integer() ){
+		type = TYPE_INTEGER;
+		size = 0;
+	}
+	else if( Float() ){
+		type = TYPE_FLOAT;
+		size = 0;
+	}
+	else if( String() ){
+		type = TYPE_STRING;
+		size = 0;
+	}
+	else if( Char() ){
+		type = TYPE_CHAR;
+		size = 0;
+	}
+	else if( CheckToken(T_FALSE) ){
+		type = TYPE_BOOL;
+		size = 0;
+	}
+	else if( CheckToken(T_TRUE) ){
+		type = TYPE_BOOL;
+		size = 0;
+	}
 	else return false;
+	return true;
 }
 
 // <name> ::= <identifier> { [ <epression> ] }
-bool Parser::Name(){
+bool Parser::Name(int &type, int &size){
 	if( Identifier() ){
+		type = prev_token->type;
+		size = prev_token->size;
 		if( CheckToken(T_LBRACKET) ){
+			if(size < 2) ReportError("not an array");
 			if( Expression() ){
+				size = 1;
 				if( CheckToken(T_RBRACKET) ) return true;
 				else ReportError("expected ']' after expression in name");
 			}
