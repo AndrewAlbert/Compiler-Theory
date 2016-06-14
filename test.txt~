@@ -4,7 +4,7 @@
 program main is
 
 integer intVar;
-integer floatVar;
+float floatVar;
 string strVar;
 
 begin

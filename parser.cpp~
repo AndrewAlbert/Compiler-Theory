@@ -42,7 +42,7 @@ void Parser::ReportError(string message){
 
 //report error line number and descriptive message
 void Parser::ReportWarning(string message){
-	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
+	string msg = "Warning: " + message + " at line: " + token->line + "\n\tFound: " + token->ascii;
 	warning_queue.push(msg);
 	warning = true;
 }

@@ -64,7 +64,7 @@ void scope::printScope(){
 		vector<scopeValue> Vec = it->second.arguments;		
 		vector<scopeValue>::size_type vec_it;
 		for(vec_it = 0; vec_it != Vec.size(); vec_it++){
-			cout << Vec[vec_it].type << "\t";
+			cout << Vec[vec_it]->type << "\t";
 		}
 		cout << endl;
 	}

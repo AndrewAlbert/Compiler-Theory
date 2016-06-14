@@ -3,6 +3,7 @@
 #include "macro.h"
 #include "scope.h"
 #include "scopeTracker.h"
+#include "scopeValue.h"
 #include<string>
 #include<iostream>
 #include <cstdio>
