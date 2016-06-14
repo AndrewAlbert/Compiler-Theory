@@ -277,7 +277,8 @@ bool Parser::ProcedureCall(){
  *	|<expression>
  */
 bool Parser::ArgumentList(){
-	if( Expression() ){
+	int type, size;
+	if( Expression(type, size) ){
 		if( CheckToken(T_COMMA) ){
 			if( !ArgumentList() ) ReportError("expected another argument after ','");
 		}
@@ -520,16 +521,16 @@ bool Parser::ArithOp(int &type, int &size){
 	if( Relation(type1, size1) ){
 		bool next = false;
 		if(CheckToken(T_ADD)){
-			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations")
+			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations");
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
-			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations")
+			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations");
 			next = true;
 		}
 		while(next){
 			if( !Relation(type2, size2) ) ReportError("expected Relation as part of ArithOp");
-			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations")
+			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations");
 			else{
 				if(size1 != 0 && size2 !=0 && size1 != size2) ReportError("incompatible array sizes");
 				else if(size2 != 0) size1 = size2;
@@ -560,7 +561,7 @@ bool Parser::Relation(int &type, int &size){
 	bool next = false;
 	if( Term(type1, size1) ){
 		if( CheckToken(T_COMPARE) ){
-			if(type1 == TYPE_INTEGER || type1 == TYPE_BOOLEAN){
+			if(type1 == TYPE_INTEGER || type1 == TYPE_BOOL){
 				type1 = TYPE_BOOLEAN;
 				next = true;
 			}
@@ -571,7 +572,7 @@ bool Parser::Relation(int &type, int &size){
 			if(!Term(type2, size2)) ReportError("expected term");
 			
 			//check that term 2 is an integer or boolean value
-			if(!(type2 == TYPE_INTEGER || type2 == TYPE_BOOLEAN)) ReportError("can only use integers '0' and '1' or booleans for relations");
+			if(!(type2 == TYPE_INTEGER || type2 == TYPE_BOOL)) ReportError("can only use integers '0' and '1' or booleans for relations");
 			
 			//if term 1 is an array, check that term 2 is a scalar or an identically sized array
 			if(size1 != 0){
@@ -685,10 +686,11 @@ bool Parser::Factor(int &type, int &size){
 bool Parser::Name(int &type, int &size){
 	if( Identifier() ){
 		type = prev_token->type;
-		size = prev_token->size;
+		size = 0; //fix for size from checksymbol
 		if( CheckToken(T_LBRACKET) ){
 			if(size < 2) ReportError("not an array");
-			if( Expression() ){
+			int type2, size2;
+			if( Expression(type2, size2) ){
 				size = 1;
 				if( CheckToken(T_RBRACKET) ) return true;
 				else ReportError("expected ']' after expression in name");
