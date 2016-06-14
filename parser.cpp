@@ -36,6 +36,7 @@ void Parser::ReportError(string message){
 	cout << "Error: " << message << " at line: " << token->line << endl;
 	cout << "Found: " << token->ascii << endl;
 	error = true;
+	DisplayWarningQueue();
 	exit(EXIT_FAILURE);
 }
 
