@@ -48,7 +48,7 @@ scopeValue scope::getSymbol(string identifier){
 	else{
 		scopeValue nullVal;
 		nullVal.type = T_UNKNOWN;
-		vector<int> nullVector;
+		vector<scopeValue> nullVector;
 		nullVal.arguments = nullVector;
 		return nullVal;
 	}
