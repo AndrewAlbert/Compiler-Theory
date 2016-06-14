@@ -1,5 +1,6 @@
 #ifndef SCANNER_H
 #define SCANNER_H
+
 #include <string>
 #include <map>
 #include <fstream>
@@ -7,7 +8,6 @@
 #include <cstdio>
 #include <stdio.h>
 #include <cstddef>
-#include "token.h"
 #include "macro.h"
 
 using namespace std;

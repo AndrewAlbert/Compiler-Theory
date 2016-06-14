@@ -1,22 +1,32 @@
 #ifndef PARSER_H
 #define PARSER_H
+
 #include <string>
-#include "token.h"
 #include "macro.h"
 #include "scopeTracker.h"
 #include <cstdio>
+#include <queue>
 using namespace std;
 
 class Parser
 {
 	private:
-		//token type from scanner
+		//methods and queue used for warning/error reporting in parser
+		queue<string> warning_queue;
+		bool warning;
+		bool error;
 		void ReportError(string message);
+		void ReportWarning(string message);
+		void DisplayWarningQueue();
+		
+		//methods and variable for using the tokens passed from the scanner
 		bool CheckToken(int type);
 		token_type* token;
 		token_type* prev_token;
+		
 		//Pointer to scope symbol tables
 		scopeTracker* Scopes;
+		
 		//variables to hold info for scope table symbols 
 		scopeValue ScopeValue;
 		scopeValue ProcValue;
@@ -24,9 +34,11 @@ class Parser
 		bool ProcGlobal;
 		string ScopeIdentifier;
 		string ProcIdentifier;
+		
 		//private functions to handle manipulating symbol data
 		void clearScopeVals();
 		void clearProcVals();
+		
 		//bool SetSymbol();
 		bool CheckSymbol();
 		void Program();
@@ -49,13 +61,17 @@ class Parser
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();
-		bool Expression();
-		bool ArithOp();
-		bool Relation();
-		bool Term();
-		bool Factor();
-		bool Name();
+		
+		bool Expression(int &type, int &size);
+		bool ArithOp(int &type, int &size);
+		bool Relation(int &type, int &size);
+		bool Term(int &type, int &size);
+		bool Factor(int &type, int &size);
+		bool Name(int &type, int &size);
+		
 		bool Number();
+		bool Integer();
+		bool Float();
 		bool String();
 		bool Char();
 		bool Identifier();
