@@ -34,7 +34,7 @@ Parser::~Parser(){
 //report error line number and descriptive message
 void Parser::ReportError(string message){
 	cout << "Error: " << message << " at line: " << token->line << endl;
-	cout << "Found: " << token->ascii << endl;
+	cout << "Found: " << token->ascii << " type: " << token->type << endl;
 	error = true;
 	DisplayWarningQueue();
 	exit(EXIT_FAILURE);
