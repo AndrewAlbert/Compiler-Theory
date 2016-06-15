@@ -589,7 +589,7 @@ bool Parser::Relation(int &type, int &size){
 		}
 		type = type1;
 		size = size1;
-		cout << "Relation type: " << type << endl;
+		cout << "Relation type: " << type1 << endl;
 		return true;
 	}
 	else return false; 
