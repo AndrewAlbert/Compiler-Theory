@@ -64,7 +64,7 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 }
 
 //returns true if symbol exists and puts its table entry into &value
-bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool procedure){
+bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	tmpPtr = curPtr;
 	//check local symbols of current scope
 	found = tmpPtr->checkSymbol(string identifier, false);
