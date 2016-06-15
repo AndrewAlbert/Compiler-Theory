@@ -77,7 +77,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	while(tmpPtr != nullptr){
 		found = tmpPtr->checkSymbol(identifier, true);
 		if(found){
-			value = tmpPtr->getSymbol(identifier)
+			value = tmpPtr->getSymbol(identifier);
 			return true;
 		}
 		else tmpPtr = tmpPtr->prevScope;
