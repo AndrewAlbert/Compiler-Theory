@@ -69,7 +69,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	//check local symbols of current scope
 	bool found = tmpPtr->checkSymbol(identifier, false);
 	if(found){
-		value = tmpPtr->getSymbol(identifier)
+		value = tmpPtr->getSymbol(identifier);
 		return true;
 	}
 	else tmpPtr = tmpPtr->prevScope;
