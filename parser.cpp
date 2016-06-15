@@ -521,16 +521,16 @@ bool Parser::ArithOp(int &type, int &size){
 	if( Relation(type1, size1) ){
 		bool next = false;
 		if(CheckToken(T_ADD)){
-			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations");
+			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
-			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations");
+			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		while(next){
-			if( !Relation(type2, size2) ) ReportError("expected Relation as part of ArithOp");
-			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations");
+			if( !Relation(type2, size2) ) ReportError("expected Relation (+/-) as part of ArithOp");
+			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
 			else{
 				if(size1 != 0 && size2 !=0 && size1 != size2) ReportError("incompatible array sizes");
 				else if(size2 != 0) size1 = size2;
