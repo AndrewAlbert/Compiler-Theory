@@ -691,7 +691,7 @@ bool Parser::Name(int &type, int &size){
 		if(symbolExists){
 			size = ScopeValue.size;
 			type = ScopeValue.type;
-			if(type == TYPE_PROCEDURE) ReportError(id + " is a procedure in this scope, not a variable")
+			if(type == TYPE_PROCEDURE) ReportError(id + " is a procedure in this scope, not a variable");
 		}
 		else ReportWarning(id + " has not been declared in this scope");
 
