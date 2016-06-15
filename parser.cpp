@@ -156,13 +156,12 @@ void Parser::Declaration(){
 	//determine type of declaration, if one exists. ReportErrors if declaration is bad. Otherwise look for next declaration
 	if(ProcedureDeclaration()){
 		Declaration();
-		//if(CheckToken(T_SEMICOLON)) Declaration();
-		//else ReportError("expected ';'");
+		if(CheckToken(T_SEMICOLON)) Declaration();
+		else ReportWarning("expected ';' at end of procedure body");
 	}
 	else if(VariableDeclaration()){
-		Declaration();
-		//if(CheckToken(T_SEMICOLON)) Declaration();
-		//else ReportError("expected ';'");
+		if(CheckToken(T_SEMICOLON)) Declaration();
+		else ReportError("expected ';'");
 	}
 	else{
 		//if 'global' reserved word was found, then a declaration should exist
@@ -252,8 +251,6 @@ bool Parser::ProcedureBody(){
 		Statement();
 		if(CheckToken(T_END)){
 			if(CheckToken(T_PROCEDURE)) {
-				//semicolon at end of procedure body is optional
-				if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' at end of procedure body");
 				return true;
 			}
 			else ReportError("expected 'procedure'");
