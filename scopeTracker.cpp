@@ -67,17 +67,17 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	tmpPtr = curPtr;
 	//check local symbols of current scope
-	found = tmpPtr->checkSymbol(string identifier, false);
+	found = tmpPtr->checkSymbol(identifier, false);
 	if(found){
-		value = tmpPtr->getSymbol(string identifier)
+		value = tmpPtr->getSymbol(identifier)
 		return true;
 	}
 	else tmpPtr = tmpPtr->prevScope;
 	//check global symbols of all upper scopes
 	while(tmpPtr != nullptr){
-		found = tmpPtr->checkSymbol(string identifier, true);
+		found = tmpPtr->checkSymbol(identifier, true);
 		if(found){
-			value = tmpPtr->getSymbol(string identifier)
+			value = tmpPtr->getSymbol(identifier)
 			return true;
 		}
 		else tmpPtr = tmpPtr->prevScope;
