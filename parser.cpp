@@ -679,6 +679,7 @@ bool Parser::Factor(int &type, int &size){
 		size = 0;
 	}
 	else return false;
+	cout << "type: " << type << endl;
 	return true;
 }
 
