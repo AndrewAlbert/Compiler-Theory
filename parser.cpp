@@ -685,10 +685,18 @@ bool Parser::Factor(int &type, int &size){
 // <name> ::= <identifier> { [ <epression> ] }
 bool Parser::Name(int &type, int &size){
 	if( Identifier() ){
-		type = prev_token->type;
-		size = 0; //fix for size from checksymbol
+		string id = prev_token->ascii;
+		clearScopeVals();
+		bool symbolExists = Scopes->checkSymbol(id, ScopeValue);
+		if(symbolExists){
+			size = ScopeValue.size;
+			type = ScopeValue.type;
+			if(type == TYPE_PROCEDURE) ReportError(id + " is a procedure in this scope, not a variable")
+		}
+		else ReportWarning(id + " has not been declared in this scope");
+
 		if( CheckToken(T_LBRACKET) ){
-			if(size < 2) ReportError("not an array");
+			if(size < 1) ReportError(id + " is not an array");
 			int type2, size2;
 			if( Expression(type2, size2) ){
 				size = 1;
