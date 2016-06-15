@@ -63,9 +63,26 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 	else return false;
 }
 
-bool scopeTracker::checkSymbol(string identifier, scopeValue value){
+//returns true if symbol exists and puts its table entry into &value
+bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool procedure){
 	tmpPtr = curPtr;
-	//while(tmpPtr != nullptr);
+	//check local symbols of current scope
+	found = tmpPtr->checkSymbol(string identifier, false);
+	if(found){
+		value = tmpPtr->getSymbol(string identifier)
+		return true;
+	}
+	else tmpPtr = tmpPtr->prevScope;
+	//check global symbols of all upper scopes
+	while(tmpPtr != nullptr){
+		found = tmpPtr->checkSymbol(string identifier, true);
+		if(found){
+			value = tmpPtr->getSymbol(string identifier)
+			return true;
+		}
+		else tmpPtr = tmpPtr->prevScope;
+	}
+	return false;
 }
 
 void scopeTracker::reportError(string message){
