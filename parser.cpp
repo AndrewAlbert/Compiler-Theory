@@ -155,12 +155,14 @@ void Parser::Declaration(){
 
 	//determine type of declaration, if one exists. ReportErrors if declaration is bad. Otherwise look for next declaration
 	if(ProcedureDeclaration()){
-		if(CheckToken(T_SEMICOLON)) Declaration();
-		else ReportError("expected ';'");
+		Declaration();
+		//if(CheckToken(T_SEMICOLON)) Declaration();
+		//else ReportError("expected ';'");
 	}
 	else if(VariableDeclaration()){
-		if(CheckToken(T_SEMICOLON)) Declaration();
-		else ReportError("expected ';'");
+		Declaration();
+		//if(CheckToken(T_SEMICOLON)) Declaration();
+		//else ReportError("expected ';'");
 	}
 	else{
 		//if 'global' reserved word was found, then a declaration should exist
