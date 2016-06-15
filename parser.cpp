@@ -624,6 +624,8 @@ bool Parser::Term(int &type, int &size){
 				else next = false;
 			}
 		}
+		type = type1;
+		cout << "Term type: " << type << endl;
 		return true;
 	}
 	else return false;
@@ -683,7 +685,7 @@ bool Parser::Factor(int &type, int &size){
 		size = 0;
 	}
 	else return false;
-	cout << "type: " << type << endl;
+	cout << "Factor type: " << type << endl;
 	return true;
 }
 
