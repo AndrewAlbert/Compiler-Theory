@@ -521,15 +521,18 @@ bool Parser::ArithOp(int &type, int &size){
 	if( Relation(type1, size1) ){
 		bool next = false;
 		if(CheckToken(T_ADD)){
+			cout << "type1: " << type1 << endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
+			cout << "type1: " << type1 << endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		while(next){
 			if( !Relation(type2, size2) ) ReportError("expected Relation (+/-) as part of ArithOp");
+			cout << "type2: " << type2 << endl;
 			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
 			else{
 				if(size1 != 0 && size2 !=0 && size1 != size2) ReportError("incompatible array sizes");
