@@ -51,7 +51,7 @@ class Parser
 		bool ProcedureBody();
 		bool ProcedureCall();
 		bool ArgumentList();
-		bool VariableDeclaration();
+		bool VariableDeclaration(bool parameter);
 		int TypeMark();
 		bool Parameter();
 		int ParameterList();
