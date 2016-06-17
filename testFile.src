@@ -1,0 +1,61 @@
+program Main is
+//variable declarations
+  bool intResult[5];
+  integer int0[5];
+  integer int1[5];
+  bool bool0[3];
+  bool bool1[3];
+  bool boolResult[3];
+  bool flag;
+  
+//procedure declarations
+  global procedure reverseArray(int arrayIn[5] inout)
+    int tmp[5];
+    int i;
+    begin
+      for( i = 0; i < 5)
+        tmp[i] := arrayIn[4-i];
+        i := i + 1;
+      end for
+      arrayIn = tmp;
+    end procedure;
+  
+  procedure XoR(bool array1[3] in, bool array2[3] in, bool result[3] out)
+    bool orTmp[5];
+    bool andTmp[5];
+    begin
+      orTmp := array1 | array2;
+      andTmp := array1 & array2;
+      result := ( not andTmp ) & orTmp ;
+    end procedure;
+    
+  procedure compare(int array0[5] in, int array1[5] in, bool result[5] out)
+    int i;
+    begin
+      for( i = 0; i < 5)
+        if(array0[i] != array1[i]) then result[i] = false;
+        else result[i] = true;
+        end if
+      end for
+    end procedure;
+
+begin
+  int0 := 3;
+  int1[0] := 0;
+  int1[1] := 1;
+  int1[2] := 2;
+  int1[3] := 3;
+  int1[4] := 4;
+  compare( int0, int1, intResult);
+  reverseArray(int0)
+  compare( int0, int1, intResult);
+  
+  bool0 := true;
+  bool1[0] := false;
+  bool1[1] := true;
+  bool1[2] := true;
+  XoR(bool0, bool1, boolResult)
+  
+  flag := boolResult[0];
+  
+end program.
