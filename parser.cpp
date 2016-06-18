@@ -71,52 +71,26 @@ bool Parser::CheckToken(int type){
 	else return false;
 }
 
-//clear the variables used when adding/checking to/from the symbol tables for variables
-void Parser::clearScopeVals(){
-	ScopeValue.type = T_UNKNOWN;
-	ScopeValue.size = 0;
-	ScopeValue.arguments.erase(ScopeValue.arguments.begin(), ScopeValue.arguments.end());
-	ScopeGlobal = false;
-	ScopeIdentifier = "";
-}
-
-//clear the variables used when adding/checking to/from the symbol tables for procedures -- helps deal with parameter declarations
-void Parser::clearProcVals(){
-	ProcValue.type = T_UNKNOWN;
-	ProcValue.size = 0;
-	ProcValue.arguments.erase(ProcValue.arguments.begin(), ProcValue.arguments.end());
-	ProcGlobal = false;
-	ProcIdentifier = "";
-}
-
-//<program> ::= <program_header><program_body>
+//<program> ::= <program_header> <program_body>
 void Parser::Program(){
 	Scopes->newScope(); //Create new scope for the program
-	ProgramHeader();
-	ProgramBody();
-	if(!CheckToken(T_PERIOD)) ReportWarning("expected '.' at end of program");
-	if(CheckToken(T_EOF)) Scopes->exitScope(); //exit program scope once program ends
-	else ReportError("expected end of program");
+	if( !ProgramHeader() ) ReportError("Expected program header");
+	if( !ProgramBody() ) ReportError("Expected program body");
+	if( !CheckToken(T_PERIOD) ) ReportWarning("expected '.' at end of program");
+	if( CheckToken(T_EOF) ) Scopes->exitScope(); //exit program scope once program ends
+	else ReportError("Found some tokens remaining in file when end of program was expected");
 }
 
 //<program_header> ::= program <identifier> is
-void Parser::ProgramHeader(){
+bool Parser::ProgramHeader(){
 	if(CheckToken(T_PROGRAM)){
-		clearScopeVals(); //reset ScopeValue used for adding variables to scope tables
-		if(CheckToken(TYPE_IDENTIFIER)){
-			//get identifier, type, and global for variable to add to program
-			//ScopeIdentifier = prev_token->ascii;
-			//ScopeValue.type = TYPE_PROGRAM;
-			//ScopeGlobal = true;
-			if(CheckToken(T_IS)){
-				//Scopes->addSymbol(ScopeIdentifier, ScopeValue, ScopeGlobal); 
-				return;
-			}
+		if( Identifier() ){
+			if(CheckToken(T_IS)) return true;
 			else ReportError("expected 'is'");
 		}
 		else ReportError("expected program identifier");
 	}
-	else ReportError("expected 'program'");
+	else return false;
 }
 
 /* <program_body> ::=
@@ -125,17 +99,19 @@ void Parser::ProgramHeader(){
  *	{ <statement> ;}*
  *	end program
  */
-void Parser::ProgramBody(){
-	//get declarations
+bool Parser::ProgramBody(){
+	//Get Procedure and Variable Declarations
 	while( Declaration() ){
-		if(!CheckToken(T_SEMICOLON)) ReportWarning("Expected ; at end of declaration statement")
+		if( !CheckToken(T_SEMICOLON) ) ReportWarning("Expected ';' at end of declaration in program body");
 	}
-	//get statements
+	//Get Statements
 	if(CheckToken(T_BEGIN)){
-		Statement();
+		while( Statement() ){
+			if( !CheckToken(T_SEMICOLON) ) ReportWarning("Expected ';' at end of statement in program body");
+		}
 		if(CheckToken(T_END)){
-			if(CheckToken(T_PROGRAM)) return;
-			else ReportError("expected 'program'");
+			if( CheckToken(T_PROGRAM) ) return true;
+			else ReportError("Expected 'end program' ");
 		}
 		else ReportError("expected 'end'");
 	}
@@ -149,152 +125,33 @@ void Parser::ProgramBody(){
 bool Parser::Declaration(){
 	bool global;
 	string id;
-	scopeValue newEntry;
-	newEntry.arguments.clear();
-	newEntry.paramType = TYPE_PARAM_NULL;
+	scopeValue newSymbol;
+	
+	//ensure that the arguments member and paramType are both cleared before starting. None of these cases will set paramType.
+	//ProcedureDeclaration will set the arguments based on the procedure's parameters
+	newSymbol.arguments.clear();
+	newSymbol.paramType = TYPE_PARAM_NULL;
 	
 	//determine if symbol declaration is global in scope
-	if(CheckToken(T_GLOBAL)) global = true;
+	if( CheckToken(T_GLOBAL) ) global = true;
 	else global = false;
 
-	//determine type of declaration, if one exists. ReportErrors if declaration is bad. Otherwise look for next declaration
-	if(ProcedureDeclaration(id, newEntry.arguments, global)){
-		newEntry.type = TYPE_PROCEDURE;
-		newEntry.size = 0;
-		//add procedure entry to its own
+	//Determine if a procedure or variable declaration exists
+	if( ProcedureDeclaration(id, newSymbol, global) ){
 		Scopes->exitScope();
-		Scopes->addSymbol(id, newEntry, global);
+		Scopes->addSymbol(id, newSymbol, global);
 		return true;
 	}
-	else if(VariableDeclaration(id, newEntry)){
-		Scopes->addSymbol(id, newEntry, global);
+	else if( VariableDeclaration(id, newSymbol) ){
+		//Add symbol to current scope. VariableDeclaration will assign the symbol's type and size members.
+		Scopes->addSymbol(id, newSymbol, global);
 		return true;
 	}
-	else if(global){
+	else if( global ){
 		ReportError("expected either procedure or variable declaration after 'global' keyword");
 		return false;
 	}
 	else return false;
-}
-
-/*	<statement> ::=
- *		 <assignment_statement>
- *		|<if_statement>
- *		|<loop_statement>
- *		|<return_statement>
- *		|<procedure_call>
- */
-bool Parser::Statement(){
-	//determine type of statement, if one exists
-	if( IfStatement() ) return true;
-	else if( LoopStatement() ) return true;
-	else if( ReturnStatement() ) return true;
-	else if( Assignment() ) return true;
-	else if( ProcedureCall() ) return true;
-	else return false;
-}
-
-//<procedure_declaration> ::= <procedure_header><procedure_body>
-bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration){
-	//get procedure header
-	if(ProcedureHeader(procDeclaration)){
-		if(ProcedureBody()){
-			return true;
-		}
-		else ReportError("expected procedure body");
-	}
-	else return false;
-}
-
-//<procedure_header> ::= procedure <identifier> ( { <parameter_list> } )
-bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool global){
-	if(CheckToken(T_PROCEDURE)){
-		//create new scope for the procedure
-		Scopes->newScope();
-		
-		//set ProcValue type for procedure's identifier to be added to the symbol tables
-		procDeclaration.type = TYPE_PROCEDURE;
-		procDeclaration = 0;
-		
-		//get procedure identifier and set value to be added to the symbol table
-		if(CheckToken(TYPE_IDENTIFIER)){
-			id = prev_token->ascii;
-			
-			//get parameter list for the procedure if it has parameters
-			if(CheckToken(T_LPAREN)){
-				ParameterList(procDeclaration);
-				if(CheckToken(T_RPAREN)){
-					Scopes->addSymbol(id, procDeclaration, global);
-					return true;
-				}
-				else ReportError("expected ')' in procedure header");
-			}
-			else ReportError("expected '(' in procedure header");
-		}
-		else ReportError("expected procedure identifier");
-	}
-	else return false;
-}
-
-/*	<procedure_body> ::=
- *		{ <declaration> ; }*
- *		begin
- *		{ <statement> ; }*
- *		end procedure
- */
-bool Parser::ProcedureBody(){
-	//get symbol declarations for next procedure
-	while( Declaration() ){
-		if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after declaration in procedure");
-	}
-	
-	//get statements for procedure body
-	if(CheckToken(T_BEGIN)){
-		while( Statement() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in procedure");
-		}
-		if(CheckToken(T_END)){
-			if(CheckToken(T_PROCEDURE)) {
-				return true;
-			}
-			else ReportError("expected 'procedure'");
-		}
-		else ReportError("expected 'end'");
-	}
-	else ReportError("expected 'begin'");
-}
-
-//<procedure_call> ::= <identifier>( { <argument_list> } )
-bool Parser::ProcedureCall(){
-	vector<scopeValue> argList;
-	scopeValue procCall;
-	//does not check for the identifier since procedure call is only called right before the assignment check which will determine if there is an identifier
-	if(CheckToken(T_LPAREN)){
-		argList = ArgumentList();
-		if(CheckToken(T_RPAREN)) return true;
-		else ReportError("expected ')' in procedure call");
-	}
-	else return false;
-}
-
-/*	<argument_list> ::=
- *	 <expression> , <argument_list>
- *	|<expression>
- */
-vector<scopeValue> Parser::ArgumentList(){
-	vector<scopeValue> list;
-	scopeValue argEntry;
-	argEntry.arguments.clear();
-	argEntry.paramType = TYPE_PARAM_NULL;
-
-	if( Expression(argEntry.type, argEntry.size) ){
-		list.push_back(argEntry);
-		while( CheckToken(T_COMMA) ){
-			if( Expression(argEntry.type, argEntry.size) ) list.push_back(argEntry);
-			else ReportWarning("expected another argument after ','");
-		}
-	}
-	return list;
 }
 
 //<variable_declarartion> ::= <type_mark><identifier>{ [<array_size>] }
@@ -303,9 +160,10 @@ bool Parser::VariableDeclaration(string &id, scopeValue &varEntry){
 	if( !TypeMark(varEntry.type) ) return false;
 	
 	//get variable identifier
-	if(CheckToken(TYPE_IDENTIFIER)){
+	if( Identifier() ){
 		//get variable identifier
 		id = prev_token->ascii;
+		
 		//get size for array variables
 		if(CheckToken(T_LBRACKET)){
 			if(CheckToken(TYPE_INTEGER)){
@@ -315,9 +173,10 @@ bool Parser::VariableDeclaration(string &id, scopeValue &varEntry){
 			}
 			else ReportError("expected integer for array size");
 		}
-		//set size = 0 for scalar values
+		
+		//set size = 0 for scalar variables
 		varEntry.size = 0;
-		else return true;
+		return true;
 	}
 	else ReportError("expected variable identifier");
 }
@@ -339,17 +198,194 @@ bool Parser::TypeMark(int &type){
 	return true;
 }
 
+//<procedure_declaration> ::= <procedure_header><procedure_body>
+bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration, bool global){
+	//Get Procedure Header
+	if( ProcedureHeader(id, procDeclaration, global) ){
+		//Get Procedure Body
+		if( ProcedureBody() ){
+			return true;
+		}
+		else ReportError("expected procedure body");
+	}
+	else return false;
+}
+
+//<procedure_header> ::= procedure <identifier> ( { <parameter_list> } )
+bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool global){
+	if( CheckToken(T_PROCEDURE) ){
+		//Create new scope in nested symbol tables for the procedure
+		Scopes->newScope();
+		
+		//Set the symbol table entry's type and size to the correct values for a procedure
+		procDeclaration.type = TYPE_PROCEDURE;
+		procDeclaration.size = 0;
+		
+		//get procedure identifier and set value to be added to the symbol table
+		if( Identifier() ){
+			id = prev_token->ascii;
+			
+			//get parameter list for the procedure, if it has parameters
+			if( CheckToken(T_LPAREN) ){
+				ParameterList(procDeclaration);
+				if( CheckToken(T_RPAREN) ){
+					Scopes->addSymbol(id, procDeclaration, global);
+					return true;
+				}
+				else ReportError("expected ')' enclosing parameter list in procedure header");
+			}
+			else ReportError("expected '(' in procedure header");
+		}
+		else ReportError("expected procedure identifier in procedure header");
+	}
+	else return false;
+}
+
+/*	<procedure_body> ::=
+ *		{ <declaration> ; }*
+ *		begin
+ *		{ <statement> ; }*
+ *		end procedure
+ */
+bool Parser::ProcedureBody(){
+	//get symbol declarations for next procedure
+	while( Declaration() ){
+		if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after declaration in procedure");
+	}
+	
+	//get statements for procedure body
+	if( !CheckToken(T_BEGIN) ) ReportError("expected 'begin' after declarations in procedure body");
+	
+	while( Statement() ){
+		if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in procedure");
+	}
+	
+	if( CheckToken(T_END) ){
+	else if( CheckToken(T_PROCEDURE) ) {
+			return true;
+		}
+		else ReportError("expected 'end procedure' at end of procedure declaration");
+	}
+	else ReportError("expected 'end procedure' at end of procedure declaration");
+
+}
+
+/* <procedure_call> ::= <identifier>( { <argument_list> } )
+ * Note: the identifier is found in the previously called assignment statement and will have its value passed to the ProcedureCall. */
+bool Parser::ProcedureCall(string id){
+	//argument list whose type and size values will be compared against those declared in the procedure's parameter list
+	vector<scopeValue> argList;
+	
+	//variable to store information about the procedure declaration from the symbol table, if one exists
+	scopeValue procedureCall;
+	
+	//ensure an id was found in the assignment statement check called right before ProcedureCall
+	if(id == "") return false;
+	
+	//get argument list used in the procedure call
+	if( CheckToken(T_LPAREN) ){
+		argList = ArgumentList();
+		if( !CheckToken(T_RPAREN) ) ReportError("expected ')' closing procedure call");
+	}
+	else ReportError("expected '(' before procedure call's argument list");
+	
+	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
+	if( Scopes->checkSymbol(id, procedureCall) ){
+		if( argList == procedureCall.arguments ) return true;
+		else{
+			string calledArgs, declaredArgs, typeName;
+			for (vector<scopeValue>::iterator it1 = argList.begin() ; it1 != argList.end(); ++it1){
+				switch (it1->type){
+					case TYPE_INTEGER:
+						typeName = "integer";
+						break;
+					case TYPE_BOOL:
+						typeName = "bool";
+						break;
+					case TYPE_CHAR:
+						typeName = "char";
+						break;
+					case TYPE_STRING:
+						typeName = "string";
+						break;
+					case TYPE_FLOAT:
+						typeName = "float";
+						break;
+					default:
+						typeName = "unknown";
+				}
+				calledArgs.append(typeName + ", ")
+			}
+			for (vector<scopeValue>::iterator it2 = procedureCall.arguments.begin() ; it2 != procedureCall.arguments.end(); ++it2){
+				switch (it2->type){
+					case TYPE_INTEGER:
+						typeName = "integer";
+						break;
+					case TYPE_BOOL:
+						typeName = "bool";
+						break;
+					case TYPE_CHAR:
+						typeName = "char";
+						break;
+					case TYPE_STRING:
+						typeName = "string";
+						break;
+					case TYPE_FLOAT:
+						typeName = "float";
+						break;
+					default:
+						typeName = "unknown";
+				}
+				declaredArgs.append(typeName + ", ")
+			}
+			ReportWarning("Incorrect arguments passed to procedure " + id + "\n\tdeclaration is: " + declaredArgs + "\n\tbut found: " + calledArgs + "\n");
+			return true;
+		}
+	}
+	else{
+		ReportWarning("Procedure: " + id + " is not declared in this scope");
+		return true;
+	}
+}
+
+/*	<argument_list> ::=
+ *	 <expression> , <argument_list>
+ *	|<expression>
+ */
+vector<scopeValue> Parser::ArgumentList(){
+	//create vector<scopeValue> where all argument list information will be stored and later returned by the function
+	vector<scopeValue> list;
+	
+	/* argEntry variable will contain argument information about expression type and size. 
+	 * All arguments will have an empty arguments vector and have their paramType = TYPE_PARAM_NULL
+	 * The procedure call, when checking these arguments, will not compare the paramType value against the declared values */
+	scopeValue argEntry;
+	argEntry.arguments.clear();
+	argEntry.paramType = TYPE_PARAM_NULL;
+
+	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vector
+	if( Expression(argEntry.type, argEntry.size) ){
+		list.push_back(argEntry);
+		while( CheckToken(T_COMMA) ){
+			if( Expression(argEntry.type, argEntry.size) ) list.push_back(argEntry);
+			else ReportWarning("expected another argument after ',' in argument list of procedure call");
+		}
+	}
+	return list;
+}
+
+
 /*	<parameter_list> ::=
  *		 <parameter> , <parameter_list>
  *		|<parameter>
  */
-void Parser::ParameterList(scopeValue &procEntry){
+bool Parser::ParameterList(scopeValue &procEntry){
 	if(Parameter(procEntry)){
 		while(CheckToken(T_COMMA)){
-			if( !Parameter(procEntry) ) ReportWarning("expected parameter after comma");
+			if( !Parameter(procEntry) ) ReportWarning("expected parameter after ',' in procedure's parameter list");
 		}
 	}
-	return;
+	return true;
 }
 
 //<parameter> ::= <variable_declaration>(in | out | inout)
@@ -373,41 +409,64 @@ bool Parser::Parameter(scopeValue &procEntry){
 	else return false;
 }
 
+/*	<statement> ::=
+ *		 <assignment_statement>
+ *		|<if_statement>
+ *		|<loop_statement>
+ *		|<return_statement>
+ *		|<procedure_call>
+ */
+bool Parser::Statement(){
+	string id = "";
+	if( IfStatement() ) return true;
+	else if( LoopStatement() ) return true;
+	else if( ReturnStatement() ) return true;
+	else if( Assignment(id) ) return true;
+	else if( ProcedureCall(id) ) return true;
+	else return false;
+}
+
 // <assignment_statement> ::= <destination> := <expression>
-bool Parser::Assignment(){
-	//determine destination of assignment
-	if(!Destination()) return false;
+bool Parser::Assignment(string &id){
+	int type, size, dType, dSize;
+	
+	//Determine destination if this is a valid assignment statement
+	if( !Destination(id, dType, dSize) ) return false;
+	
 	//get assignment expression
-	if(CheckToken(T_ASSIGNMENT)){
-		int type, size;
+	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
+		If( (size != dSize) || (type != dType) )
 		return true;
 	}
-	else return false;	
+	else ReportError("expected ':=' after destination in assignment statement");	
 }
 
-bool Parser::LoopAssignment(){
-	if(!Destination()) return false;
-	if(CheckToken(T_ASSIGNMENT)){
-		int type, size;
-		Expression(type, size);
-		return true;
-	}
-	else return false;	
-}
-
-//<destination> ::= <identifier> { [<expression] }
-bool Parser::Destination(){
-	//clearScopeVals();
-	if(CheckToken(TYPE_IDENTIFIER)){
+/* <destination> ::= <identifier> { [<expression] }
+ * Returns the destination's identifier (will be used in procedure call if assignment fails).
+ * Returns destination's type and size for comparison with what is being assigned to the destination. */
+bool Parser::Destination(string &id, int &dType, int &dSize){
+	//Variable to hold destination symbol's information from the nested scope tables
+	scopeValue destinationValue;
+	bool found;
+	
+	if( Identifier() ){
+		id = prev_token->ascii;
+		found = checkSymbol(id, destinationValue)
+		
+		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
+		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
+		else dType = destinationValue.type;
 		
 		if(CheckToken(T_LBRACKET)){
-			int type, size;
-			if(Expression(type, size)){
-				if(CheckToken(T_RBRACKET)) return true;
-				else ReportError("expected ']' destination");
+			if( Expression(type, size) ){
+				//ensure array index is a single numeric value
+				if( size != 0 || ( (type != TYPE_FLOAT) && ( type != TYPE_INTEGER) && ( type != TYPE_BOOL) ) ) 
+					ReportWarning("destination array's index must be a scalar numeric value");
+				if( CheckToken(T_RBRACKET) ) return true;
+				else ReportError("expected ']' after destination array's index");
 			}
-			else ReportError("expected expression");
+			else ReportError("expected scalar numeric expression in array index");
 		}
 		else return true;
 	}
@@ -420,42 +479,54 @@ bool Parser::Destination(){
  *		end if
  */
 bool Parser::IfStatement(){
-	if(CheckToken(T_IF)){
-		//get expression for conditional statement
-		if(CheckToken(T_LPAREN)){
-			int type, size;
-			Expression(type, size);
-			if(CheckToken(T_RPAREN)){
-				//get true conditional statements
-				if(CheckToken(T_THEN)){
-					bool flag = false;
-					while( Statement() ){
-						flag = true;
-						if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement")
-					}
-					if( !flag ) ReportWarning("expected at least one statement after 'then' in if statement")
-					//get false conditional statements
-					if(CheckToken(T_ELSE)){
-						flag = false;
-						while( Statement() ){
-							flag = true;
-							if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement")
-						}
-						if( !flag ) ReportWarning("expected at least one statement after 'else' in if statement")
-					}
-					if(CheckToken(T_END)){
-						if(CheckToken(T_IF)) return true;
-						else ReportError("expected 'end if' at end of conditional statement");
-					}
-					else ReportError("expected 'end if' at end of conditional statement");
-				}
-				else ReportError("expected 'then' after if statement's condition");
-			}
-			else ReportError("expected ')' after condition in if statement");
+	/* flag to determine if at least one statement occured after 'then' and 'else' 
+	 * type and size variables are unused but needed to perfrom the call to Expression(type, size) */
+	bool flag;
+	int type, size;
+	
+	//determine if this is the start of an if statement
+	if( !CheckToken(T_IF) ) return false;
+	
+	//get expression for conditional statement: '( <expression> )'
+	if( !CheckToken(T_LPAREN) ) ReportError("expected '(' before condition in if statement");
+	if( !Expression(type, size) ) ReportError("Expected condition for if statement");
+	else if (type != TYPE_BOOL) ReportWarning("conditional expression in if statement must evaluate to type bool");
+	if( !CheckToken(T_RPAREN) ) ReportError("expected ')' after condition in if statement");
+	
+	
+	/* Get statements to be evaluated if the statement's expression evaluates to true. 
+	 * There must be at least one statement following 'then'. */
+	if( CheckToken(T_THEN) ){
+		flag = false;
+		while( Statement() ){
+			flag = true;
+			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement")
 		}
-		else ReportError("expected '(' before condition in if statement");
+		if( !flag ) ReportWarning("expected at least one statement after 'then' in if statement")
 	}
-	else return false;
+	else ReportError("expected 'then' after condition in if statement");
+	
+	/* Get statements to be evaluated if the statement's expression evaluates to false. 
+	 * There must be at least one statement if there is an 'else' case. */
+	if(CheckToken(T_ELSE)){
+		flag = false;
+		while( Statement() ){
+			flag = true;
+			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement")
+		}
+		if( !flag ) ReportWarning("expected at least one statement after 'else' in if statement")
+	}
+	
+	/* check for correct closure of statement: 'end if' */
+	if( CheckToken(T_END) ){
+		if( !CheckToken(T_IF) ) ReportError("missing 'if' in the 'end if' closure of the if statement")
+		return true;
+	}
+	else if( CheckToken(T_IF) ){
+		ReportError("missing 'end' in the 'end if' closure of the if statement.\n\tUnable to tell if the found 'if' is actually the start of a new statement");
+		return true;
+	}
+	else ReportError("expected 'end if' at end of conditional statement");
 }
 
 /*	<loop_statement> ::=
@@ -464,32 +535,33 @@ bool Parser::IfStatement(){
  *		end for
  */
 bool Parser::LoopStatement(){
-	if(CheckToken(T_FOR)){
-		if(CheckToken(T_LPAREN)){
-			//get assignment statement for loop
-			if(LoopAssignment()){
-				if(CheckToken(T_SEMICOLON)){
-					int type, size;
-					if(Expression(type, size)){
-						if(!CheckToken(T_RPAREN)) ReportError("expected ')' in loop assignment");
-						while( Statement() ){
-							if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in loop")
-						}
-						if(CheckToken(T_END)){
-							if(CheckToken(T_FOR)) return true;
-							else ReportError("expected 'FOR' at end of loop statement");
-						}
-						else ReportError("expected 'end for' at end of loop statement");
-					}
-					else ReportError("expected expression in loop assignment");
-				}
-				else ReportError("expected ';' after loop assignment statement");
-			}
-			else ReportError("expected loop assignment statement");
-		}
-		else ReportError("expected '(' in for declaration");
+	int type, size;
+	
+	//Determine if a loop statement is going to be declared
+	if( !CheckToken(T_FOR) ) return false;
+	
+	/* get assignment statement and expression for loop: '( <assignment_statement> ; <expression> )'
+	 * Throws errors if '(' or ')' is missing. Throws warnings for other missing components */
+	if( !CheckToken(T_LPAREN) ) ReportError("expected '(' before assignment and expression in for loop statement");
+	if( !Assignment() ) ReportWarning("expected an assignment at start of for loop statement");
+	if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' separating assignment statement and expression in for loop statement");
+	if( !Expression(type, size) ) ReportWarning("expected a valid expression following assignment in for loop statement");
+	if( !CheckToken(T_RPAREN) ) ReportError("expected ')' after assignment and expression in for loop statement");
+	
+	while( Statement() ){
+		if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in for loop");
 	}
-	else return false;
+	
+	/* check for correct closure of loop: 'end loop' */
+	if( CheckToken(T_END) ){
+		if( !CheckToken(T_FOR) ) ReportWarning("missing 'for' in the 'end for' closure of the for loop statement");
+		return true;
+	}
+	else if( CheckToken(T_FOR) ){
+		ReportError("missing 'end' in the 'end for' closure of the for loop statement.\n\tUnable to tell if the found 'for' is actually the start of a new statement");
+		return true;
+	}
+	else ReportError("expected 'end for' at end of for loop statement");
 }
 
 // <return_statement> ::= return
@@ -706,19 +778,29 @@ bool Parser::Factor(int &type, int &size){
 bool Parser::Name(int &type, int &size){
 	if( Identifier() ){
 		string id = prev_token->ascii;
-		clearScopeVals();
-		bool symbolExists = Scopes->checkSymbol(id, ScopeValue);
+		scopeValue nameValue;
+		bool symbolExists = Scopes->checkSymbol(id, nameValue);
 		if(symbolExists){
-			size = ScopeValue.size;
-			type = ScopeValue.type;
-			if(type == TYPE_PROCEDURE) ReportError(id + " is a procedure in this scope, not a variable");
+			if(nameValue.type == TYPE_PROCEDURE){
+				ReportError(id + " is a procedure in this scope, not a variable");
+			}
+			else{
+				size = nameValue.size;
+				type = nameValue.type;
+			}
 		}
-		else ReportWarning(id + " has not been declared in this scope");
+		else{
+			ReportWarning(id + " has not been declared in this scope");
+			size = 0;
+			type = T_UNKNOWN
+		}
 
 		if( CheckToken(T_LBRACKET) ){
-			if(size < 1) ReportError(id + " is not an array");
+			if(size < 1 && nameValue.type != TYPE_PROCEDURE) ReportError(id + " is not an array");
 			int type2, size2;
 			if( Expression(type2, size2) ){
+				if( (size2 > 1) || ( (type2 != TYPE_INTEGER) && (type2 != TYPE_FLOAT) && (type2 != TYPE_BOOL) ) 
+					ReportWarning("array index must be a scalar numeric value");
 				size = 1;
 				if( CheckToken(T_RBRACKET) ) return true;
 				else ReportError("expected ']' after expression in name");
@@ -732,37 +814,32 @@ bool Parser::Name(int &type, int &size){
 
 // <number> ::= [0-9][0-9]*[.[0-9]*]
 bool Parser::Number(){
-	if(CheckToken(TYPE_INTEGER)) return true;
-	else if(CheckToken(TYPE_FLOAT)) return true;
+	if( Integer() ) return true;
+	else if( Float() ) return true;
 	else return false;
 }
 
 // <integer> ::= [0-9][0-9]*
 bool Parser::Integer(){
-	if(CheckToken(TYPE_INTEGER)) return true;
-	else return false;
+	return CheckToken(TYPE_IDENTIFIER);
 }
 
 // <float> ::= [0-9][0-9]*[.[0-9]+]
 bool Parser::Float(){
-	if(CheckToken(TYPE_FLOAT)) return true;
-	else return false;
+	return CheckToken(TYPE_FLOAT);
 }
 
 // <string> ::= "[a-zA-Z0-9_,;:.']*"
 bool Parser::String(){
-	if(CheckToken(TYPE_STRING)) return true;
-	else return false;
+	return CheckToken(TYPE_STRING);
 }
 
 // <char> ::= '[a-zA-Z0-9_,;:."]'
 bool Parser::Char(){
-	if(CheckToken(TYPE_CHAR)) return true;
-	else return false;
+	return CheckToken(TYPE_CHAR);
 }
 
 // <identifier> ::= [a-zA-Z][a-zA-Z0-9_]*
 bool Parser::Identifier(){
-	if(CheckToken(TYPE_IDENTIFIER)) return true;
-	else return false;
+	return CheckToken(TYPE_IDENTIFIER);
 }
