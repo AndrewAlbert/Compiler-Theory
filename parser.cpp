@@ -5,6 +5,7 @@
 #include<string>
 #include<stdlib.h>
 #include<iostream>
+//#include <queue>
 
 using namespace std;
 
@@ -33,20 +34,21 @@ Parser::~Parser(){
 
 //report error line number and descriptive message
 void Parser::ReportError(string message){
-	cout << "Error: " << message << " at line: " << token->line << endl;
-	cout << "Found: " << token->ascii << " type: " << token->type << endl;
+	ReportWarning(message);
 	error = true;
-	DisplayWarningQueue();
+	//DisplayWarningQueue();
 	exit(EXIT_FAILURE);
 }
 
 //report error line number and descriptive message
 void Parser::ReportWarning(string message){
 	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
-	warning_queue.push(msg);
+	cout << "Error: " << message << " at line: " << token->line << endl;
+	cout << "Found: " << token->ascii << " type: " << token->type << endl;
+	//warning_queue.push(msg);
 	warning = true;
 }
-
+/*
 //display all of the stored warnings after parsing is complete or a fatal error occurs
 void Parser::DisplayWarningQueue(){
 	while(!warning_queue.empty()){
@@ -54,7 +56,7 @@ void Parser::DisplayWarningQueue(){
 		warning_queue.pop();
 	}
 }
-
+*/
 //check if current token is the correct type, if so get next
 bool Parser::CheckToken(int type){
 	//skip all comment tokens
@@ -261,9 +263,7 @@ bool Parser::ProcedureBody(){
 	}
 	
 	if( CheckToken(T_END) ){
-	else if( CheckToken(T_PROCEDURE) ) {
-			return true;
-		}
+		if( CheckToken(T_PROCEDURE) ) return true;
 		else ReportError("expected 'end procedure' at end of procedure declaration");
 	}
 	else ReportError("expected 'end procedure' at end of procedure declaration");
@@ -291,7 +291,7 @@ bool Parser::ProcedureCall(string id){
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
 	if( Scopes->checkSymbol(id, procedureCall) ){
-		if( argList == procedureCall.arguments ) return true;
+		if( true/*argList == procedureCall.arguments*/ ) return true;
 		else{
 			string calledArgs, declaredArgs, typeName;
 			for (vector<scopeValue>::iterator it1 = argList.begin() ; it1 != argList.end(); ++it1){
@@ -314,7 +314,7 @@ bool Parser::ProcedureCall(string id){
 					default:
 						typeName = "unknown";
 				}
-				calledArgs.append(typeName + ", ")
+				calledArgs.append(typeName + ", ");
 			}
 			for (vector<scopeValue>::iterator it2 = procedureCall.arguments.begin() ; it2 != procedureCall.arguments.end(); ++it2){
 				switch (it2->type){
@@ -336,7 +336,7 @@ bool Parser::ProcedureCall(string id){
 					default:
 						typeName = "unknown";
 				}
-				declaredArgs.append(typeName + ", ")
+				declaredArgs.append(typeName + ", ");
 			}
 			ReportWarning("Incorrect arguments passed to procedure " + id + "\n\tdeclaration is: " + declaredArgs + "\n\tbut found: " + calledArgs + "\n");
 			return true;
@@ -393,7 +393,7 @@ bool Parser::Parameter(scopeValue &procEntry){
 	scopeValue paramEntry;
 	string id;
 	//get parameter declaration
-	if( VariableDeclaration(id, paramEntry.type, paramEntry.size) ){
+	if( VariableDeclaration(id, paramEntry) ){
 		//determine parameter's input / output type
 		if(CheckToken(T_IN)) paramEntry.paramType = TYPE_PARAM_IN;
 		else if(CheckToken(T_OUT)) paramEntry.paramType = TYPE_PARAM_OUT;
@@ -436,7 +436,7 @@ bool Parser::Assignment(string &id){
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
-		If( (size != dSize) || (type != dType) )
+		if( (size != dSize) || (type != dType) ) ReportError("Bad assignment, type and size must match destination");
 		return true;
 	}
 	else ReportError("expected ':=' after destination in assignment statement");	
@@ -449,10 +449,11 @@ bool Parser::Destination(string &id, int &dType, int &dSize){
 	//Variable to hold destination symbol's information from the nested scope tables
 	scopeValue destinationValue;
 	bool found;
+	int type, size;
 	
 	if( Identifier() ){
 		id = prev_token->ascii;
-		found = checkSymbol(id, destinationValue)
+		found = Scopes->checkSymbol(id, destinationValue);
 		
 		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
@@ -500,9 +501,9 @@ bool Parser::IfStatement(){
 		flag = false;
 		while( Statement() ){
 			flag = true;
-			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement")
+			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement");
 		}
-		if( !flag ) ReportWarning("expected at least one statement after 'then' in if statement")
+		if( !flag ) ReportWarning("expected at least one statement after 'then' in if statement");
 	}
 	else ReportError("expected 'then' after condition in if statement");
 	
@@ -512,14 +513,14 @@ bool Parser::IfStatement(){
 		flag = false;
 		while( Statement() ){
 			flag = true;
-			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement")
+			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in if statement");
 		}
-		if( !flag ) ReportWarning("expected at least one statement after 'else' in if statement")
+		if( !flag ) ReportWarning("expected at least one statement after 'else' in if statement");
 	}
 	
 	/* check for correct closure of statement: 'end if' */
 	if( CheckToken(T_END) ){
-		if( !CheckToken(T_IF) ) ReportError("missing 'if' in the 'end if' closure of the if statement")
+		if( !CheckToken(T_IF) ) ReportError("missing 'if' in the 'end if' closure of the if statement");
 		return true;
 	}
 	else if( CheckToken(T_IF) ){
@@ -536,6 +537,7 @@ bool Parser::IfStatement(){
  */
 bool Parser::LoopStatement(){
 	int type, size;
+	string id;
 	
 	//Determine if a loop statement is going to be declared
 	if( !CheckToken(T_FOR) ) return false;
@@ -543,7 +545,7 @@ bool Parser::LoopStatement(){
 	/* get assignment statement and expression for loop: '( <assignment_statement> ; <expression> )'
 	 * Throws errors if '(' or ')' is missing. Throws warnings for other missing components */
 	if( !CheckToken(T_LPAREN) ) ReportError("expected '(' before assignment and expression in for loop statement");
-	if( !Assignment() ) ReportWarning("expected an assignment at start of for loop statement");
+	if( !Assignment(id) ) ReportWarning("expected an assignment at start of for loop statement");
 	if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' separating assignment statement and expression in for loop statement");
 	if( !Expression(type, size) ) ReportWarning("expected a valid expression following assignment in for loop statement");
 	if( !CheckToken(T_RPAREN) ) ReportError("expected ')' after assignment and expression in for loop statement");
@@ -792,14 +794,14 @@ bool Parser::Name(int &type, int &size){
 		else{
 			ReportWarning(id + " has not been declared in this scope");
 			size = 0;
-			type = T_UNKNOWN
+			type = T_UNKNOWN;
 		}
 
 		if( CheckToken(T_LBRACKET) ){
 			if(size < 1 && nameValue.type != TYPE_PROCEDURE) ReportError(id + " is not an array");
 			int type2, size2;
 			if( Expression(type2, size2) ){
-				if( (size2 > 1) || ( (type2 != TYPE_INTEGER) && (type2 != TYPE_FLOAT) && (type2 != TYPE_BOOL) ) 
+				if( (size2 > 1) || ( (type2 != TYPE_INTEGER) && (type2 != TYPE_FLOAT) && (type2 != TYPE_BOOL) ) )
 					ReportWarning("array index must be a scalar numeric value");
 				size = 1;
 				if( CheckToken(T_RBRACKET) ) return true;
