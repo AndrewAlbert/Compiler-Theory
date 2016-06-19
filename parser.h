@@ -5,7 +5,7 @@
 #include "macro.h"
 #include "scopeTracker.h"
 #include <cstdio>
-//#include <queue>
+#include <queue>
 using namespace std;
 
 class Parser
@@ -15,8 +15,8 @@ class Parser
 		 * ReportError and ReportWarning will both enqueue a message along with line number and ascii value of current token.
 		 * ReportError will stop parsing, but ReportWarning will allow continued parsing. Both prevent code generation.
 		 * When parsing completes, or an error stops program execution, the messages stored in the warning_queue will be printed */
-		//queue<std::string> warning_queue;
-		//void DisplayWarningQueue();
+		queue<std::string> warning_queue;
+		void DisplayWarningQueue();
 		bool warning;
 		bool error;
 		void ReportError(string message);

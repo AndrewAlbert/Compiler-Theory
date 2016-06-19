@@ -5,7 +5,7 @@
 #include<string>
 #include<stdlib.h>
 #include<iostream>
-//#include <queue>
+#include <queue>
 
 using namespace std;
 
@@ -36,19 +36,17 @@ Parser::~Parser(){
 void Parser::ReportError(string message){
 	ReportWarning(message);
 	error = true;
-	//DisplayWarningQueue();
+	DisplayWarningQueue();
 	exit(EXIT_FAILURE);
 }
 
 //report error line number and descriptive message
 void Parser::ReportWarning(string message){
 	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
-	cout << "Error: " << message << " at line: " << token->line << endl;
-	cout << "Found: " << token->ascii << " type: " << token->type << endl;
-	//warning_queue.push(msg);
+	warning_queue.push(msg);
 	warning = true;
 }
-/*
+
 //display all of the stored warnings after parsing is complete or a fatal error occurs
 void Parser::DisplayWarningQueue(){
 	while(!warning_queue.empty()){
@@ -56,7 +54,7 @@ void Parser::DisplayWarningQueue(){
 		warning_queue.pop();
 	}
 }
-*/
+
 //check if current token is the correct type, if so get next
 bool Parser::CheckToken(int type){
 	//skip all comment tokens

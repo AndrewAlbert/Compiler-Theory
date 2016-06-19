@@ -7,7 +7,7 @@
 using namespace std;
 
 scope::scope(){
-	cout << "in scope()" << endl;
+
 }
 
 scope::~scope(){
@@ -27,13 +27,11 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 bool scope::checkSymbol(string identifier, bool global){
 	map<string, scopeValue>::iterator it;
 	if(global){
-		//cout << "global true" << endl;
 		it = globalTable.find(identifier);
 		if(it != globalTable.end()) return true;
 		else return false;
 	}
 	else{
-		//cout << "global false" << endl;
 		it = localTable.find(identifier);
 		if(it != localTable.end()) return true;
 		else return false;

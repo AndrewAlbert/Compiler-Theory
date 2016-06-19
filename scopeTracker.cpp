@@ -4,28 +4,21 @@
 #include <cstdio>
 
 scopeTracker::scopeTracker(){
-	//pFile = fopen("debug.txt","w");
+
 }
 
 scopeTracker::~scopeTracker(){
-	//fclose(pFile);
+
 }
-/*
-void scopeTracker::newFile(char* filename){
-	fclose(pFile);
-	pFile = fopen(filename,"w");
-}*/
 
 void scopeTracker::newScope(){
 	if(curPtr != nullptr){
-		cout << "scope added" << endl;
 		tmpPtr = curPtr;
 		curPtr = new scope();
 		curPtr->prevScope = tmpPtr;
 		tmpPtr = nullptr;
 	}
 	else{
-		cout << "first scope" << endl;
 		curPtr = new scope();
 		curPtr->prevScope = nullptr;
 	}
