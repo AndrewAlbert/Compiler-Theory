@@ -34,7 +34,8 @@ Parser::~Parser(){
 
 //report error line number and descriptive message
 void Parser::ReportError(string message){
-	ReportWarning(message);
+	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
+	warning_queue.push(msg);
 	error = true;
 	DisplayWarningQueue();
 	exit(EXIT_FAILURE);
@@ -45,6 +46,7 @@ void Parser::ReportWarning(string message){
 	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
 	warning_queue.push(msg);
 	warning = true;
+	return;
 }
 
 //display all of the stored warnings after parsing is complete or a fatal error occurs
@@ -53,6 +55,7 @@ void Parser::DisplayWarningQueue(){
 		cout << warning_queue.front() << endl;
 		warning_queue.pop();
 	}
+	return;
 }
 
 //check if current token is the correct type, if so get next
@@ -86,7 +89,7 @@ bool Parser::ProgramHeader(){
 	if(CheckToken(T_PROGRAM)){
 		if( Identifier() ){
 			if(CheckToken(T_IS)) return true;
-			else ReportError("expected 'is'");
+			else ReportError("expected 'is' after program identifier");
 		}
 		else ReportError("expected program identifier");
 	}
