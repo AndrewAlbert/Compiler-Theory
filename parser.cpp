@@ -291,7 +291,8 @@ bool Parser::ProcedureCall(string id){
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
 	if( Scopes->checkSymbol(id, procedureCall) ){
-		if( true/*argList == procedureCall.arguments*/ ) return true;
+		if( equal (argList.begin(), argList.end(), procedureCall.arguments) && equal (procedureCall.arguments.begin(), procedureCall.arguments.end(), argList) ) 
+			return true;
 		else{
 			string calledArgs, declaredArgs, typeName;
 			for (vector<scopeValue>::iterator it1 = argList.begin() ; it1 != argList.end(); ++it1){
