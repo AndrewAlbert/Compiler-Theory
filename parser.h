@@ -33,7 +33,7 @@ class Parser
 		
 		//Pointer to scope symbol tables
 		scopeTracker* Scopes;
-		
+		void declareRunTime();
 		void Program();
 		bool ProgramHeader();
 		bool ProgramBody();

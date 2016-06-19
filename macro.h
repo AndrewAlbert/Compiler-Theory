@@ -69,11 +69,11 @@ struct scopeValue{
 #define T_FALSE 278
 
 //Identifiers
-#define TYPE_INTEGER T_INTEGER
-#define TYPE_FLOAT T_FLOAT
-#define TYPE_STRING T_STRING
-#define TYPE_CHAR T_CHAR
-#define TYPE_BOOL T_BOOL
+#define TYPE_INTEGER 266
+#define TYPE_FLOAT 267
+#define TYPE_STRING 269
+#define TYPE_CHAR 270
+#define TYPE_BOOL 268
 #define TYPE_IDENTIFIER 284
 
 //used for type checking and scope only
