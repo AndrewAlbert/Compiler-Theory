@@ -2,9 +2,9 @@
 #include "scope.h"
 #include "scopeTracker.h"
 #include "macro.h"
-#include<string>
-#include<stdlib.h>
-#include<iostream>
+#include <string>
+#include <stdlib.h>
+#include <iostream>
 #include <queue>
 
 using namespace std;
@@ -125,6 +125,7 @@ void Parser::declareRunTime(){
 //<program> ::= <program_header> <program_body>
 void Parser::Program(){
 	Scopes->newScope(); //Create new scope for the program
+	declareRunTime(); //set up runtime functions as global in the outermost scope
 	if( !ProgramHeader() ) ReportError("Expected program header");
 	if( !ProgramBody() ) ReportError("Expected program body");
 	if( !CheckToken(T_PERIOD) ) ReportWarning("expected '.' at end of program");
@@ -589,20 +590,24 @@ bool Parser::ReturnStatement(){
  *		|{ not } <arithOp>
  */
 bool Parser::Expression(int &type, int &size){
+	cout << "Expression" << endl;
 	//temporary type and size variables to evaluate the Expression's resulting type and size
 	int type1, type2, size1, size2;
 	
 	//flag used to determine if an expression is required following a 'NOT' token
-	bool required = false;
-	if( CheckToken(T_NOT) ) required = true;
+	bool notSymbol = false;
+	if( CheckToken(T_NOT) ) notSymbol = true;
 	
 	//get type and size of first arithOp
 	if( ArithOp(type1, size1) ){
 		//if a bitwise logical statement occurs in the expression, all ArithOps must be integer values
 		while( CheckToken(T_LOGICAL) ){
+			if( CheckToken(T_NOT) ) notSymbol = true;
+			else notSymbol = false;
+			
 			//get type and size of each additional arithOps
 			if( !ArithOp(type2, size2) ) ReportError("expected ArithOp");
-			if( type1 != type2 || type2 != TYPE_INTEGER) ReportWarning("only integer values are allowed for bitwise expressions");
+			if( (type1 != type2) || (type2 != TYPE_INTEGER) ) ReportWarning("only integer values are allowed for bitwise expressions");
 			
 			//ensure ArithOp sizes match for arrays, scalar values (size = 0) will always be compatible
 			if( size1 != 0 && size2 != 0 && size1 != size2) ReportWarning("incompatible array sizes in bitwise expression");
@@ -613,7 +618,7 @@ bool Parser::Expression(int &type, int &size){
 		size = size1;
 		return true;
 	}
-	else if (required) ReportError("expected an ArithOp following 'NOT'");
+	else if (notSymbol) ReportError("expected an ArithOp following 'NOT'");
 	else return false;
 }
 
@@ -623,9 +628,12 @@ bool Parser::Expression(int &type, int &size){
  *		<relation>
  */
 bool Parser::ArithOp(int &type, int &size){
+	cout << "ArithOp" << endl;
 	int type1, type2, size1, size2;
+	bool next;
+	
 	if( Relation(type1, size1) ){
-		bool next = false;
+		next = false;
 		if(CheckToken(T_ADD)){
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
@@ -638,7 +646,7 @@ bool Parser::ArithOp(int &type, int &size){
 			if( !Relation(type2, size2) ) ReportError("expected Relation (+/-) as part of ArithOp");
 			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
 			else{
-				if(size1 != 0 && size2 !=0 && size1 != size2) ReportError("incompatible array sizes");
+				if( (size1 != 0) && (size2 != 0) && (size1 != size2) ) ReportError("incompatible array sizes");
 				else if(size2 != 0) size1 = size2;
 				
 				if(CheckToken(T_ADD));
@@ -663,6 +671,7 @@ bool Parser::ArithOp(int &type, int &size){
  *		|<term>
  */
 bool Parser::Relation(int &type, int &size){
+	cout << "Relation" << endl;
 	int type1, type2, size1, size2;
 	bool next = false;
 	if( Term(type1, size1) ){
@@ -704,6 +713,7 @@ bool Parser::Relation(int &type, int &size){
  *		|<factor>
  */
 bool Parser::Term(int &type, int &size){
+	cout << "Term" << endl;
 	int type1, type2, size1, size2;
 	if(Factor(type1, size1)){
 		bool next = false;
@@ -743,6 +753,7 @@ bool Parser::Term(int &type, int &size){
  *		|true
  */
 bool Parser::Factor(int &type, int &size){
+	cout << "Factor" << endl;
 	int tempType, tempSize;
 	if( CheckToken(T_LPAREN) ){
 		if( Expression(tempType, tempSize) ){
