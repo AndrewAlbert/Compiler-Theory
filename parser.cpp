@@ -291,57 +291,18 @@ bool Parser::ProcedureCall(string id){
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
 	if( Scopes->checkSymbol(id, procedureCall) ){
-		if( equal (argList.begin(), argList.end(), procedureCall.arguments) && equal (procedureCall.arguments.begin(), procedureCall.arguments.end(), argList) ) 
-			return true;
-		else{
-			string calledArgs, declaredArgs, typeName;
-			for (vector<scopeValue>::iterator it1 = argList.begin() ; it1 != argList.end(); ++it1){
-				switch (it1->type){
-					case TYPE_INTEGER:
-						typeName = "integer";
-						break;
-					case TYPE_BOOL:
-						typeName = "bool";
-						break;
-					case TYPE_CHAR:
-						typeName = "char";
-						break;
-					case TYPE_STRING:
-						typeName = "string";
-						break;
-					case TYPE_FLOAT:
-						typeName = "float";
-						break;
-					default:
-						typeName = "unknown";
-				}
-				calledArgs.append(typeName + ", ");
-			}
-			for (vector<scopeValue>::iterator it2 = procedureCall.arguments.begin() ; it2 != procedureCall.arguments.end(); ++it2){
-				switch (it2->type){
-					case TYPE_INTEGER:
-						typeName = "integer";
-						break;
-					case TYPE_BOOL:
-						typeName = "bool";
-						break;
-					case TYPE_CHAR:
-						typeName = "char";
-						break;
-					case TYPE_STRING:
-						typeName = "string";
-						break;
-					case TYPE_FLOAT:
-						typeName = "float";
-						break;
-					default:
-						typeName = "unknown";
-				}
-				declaredArgs.append(typeName + ", ");
-			}
-			ReportWarning("Incorrect arguments passed to procedure " + id + "\n\tdeclaration is: " + declaredArgs + "\n\tbut found: " + calledArgs + "\n");
-			return true;
+		string calledArgs, declaredArgs, typeName;
+		bool match = true;
+		vector<scopeValue>::iterator it1 = argList.begin();
+		vector<scopeValue>::iterator it2 = procedureCall.arguments.begin();
+		while( (it1 != argList.end()) && (it2 != procedureCall.arguments.end()) ){
+			++it1;
+			++it2;
+			if(it1->type != it2->type) match = false;
 		}
+		if((it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match)) 
+			ReportError("procedure call argument list does not match declared parameter list");
+		return true;
 	}
 	else{
 		ReportWarning("Procedure: " + id + " is not declared in this scope");
