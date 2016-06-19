@@ -413,7 +413,7 @@ bool Parser::Assignment(string &id){
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
-		if( (size != dSize) || ( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ReportWarning("Bad assignment, type and size must match destination");
+		if( (size != dSize) || ( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ) ReportWarning("Bad assignment, type and size must match destination");
 		return true;
 	}
 	else ReportError("expected ':=' after destination in assignment statement");	
