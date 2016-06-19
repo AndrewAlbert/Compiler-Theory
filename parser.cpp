@@ -88,6 +88,39 @@ bool Parser::CheckToken(int type){
 	}
 }
 
+void parser::declareRunTime(){
+	//Procedure to be added to the symbol tables
+	scopeValue procVal;
+	procVal.size = 0;
+	procVal.type = TYPE_PROCEDURE;
+	procVal.paramType = TYPE_PARAM_NULL;
+	
+	//input / output parameter of the procedure
+	scopeValue inputVal;
+	inputVal.size = 0;
+	inputVal.arguments.clear();
+	
+	string IDs[10] = ["GETBOOL", "GETINTEGER", "GETFLOAT", "GETSTRING", "GETCHAR", "PUTBOOL", "PUTINTEGER", "PUTFLOAT", "PUTSTRING", "PUTCHAR"];
+	int ParamTypes[10] = [TYPE_PARAM_OUT, TYPE_PARAM_OUT, TYPE_PARAM_OUT, TYPE_PARAM_OUT, TYPE_PARAM_OUT, TYPE_PARAM_IN, TYPE_PARAM_IN, TYPE_PARAM_IN, TYPE_PARAM_IN, TYPE_PARAM_IN];
+	int Types[10] = [TYPE_BOOL, TYPE_INTEGER, TYPE_FLOAT, TYPE_STRING, TYPE_CHAR, TYPE_BOOL, TYPE_INTEGER, TYPE_FLOAT, TYPE_STRING, TYPE_CHAR];
+
+	for(int i = 0; i < 10; i++){
+		//clear parameter list
+		procVal.arguments.clear();
+		
+		//get new parameter values
+		inputVal.type = Types[i];
+		inputVal.paramType = ParamTypes[i];
+		
+		//start new parameter list
+		procVal.parameters.push_back(inputVal);
+		
+		//add procedure as a global symbol to the outermost scope
+		Scopes->addSymbol(IDS[i], procVal, true);
+	}
+	return;	
+}
+
 //<program> ::= <program_header> <program_body>
 void Parser::Program(){
 	Scopes->newScope(); //Create new scope for the program
