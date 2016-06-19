@@ -43,6 +43,7 @@ int main(int argc, char **argv){
 	
 	scopeTracker* Scopes = new scopeTracker;
 	Scanner scanner(filename);
+	scanner.PrintTokens();
 	Parser parser(scanner.pass_ptr, Scopes);
 	return 0;
 }
