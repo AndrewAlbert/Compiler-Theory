@@ -20,14 +20,17 @@ using namespace std;
  * 	or one or more { }+
  */
 Parser::Parser(token_type* headptr, scopeTracker* scopes){
+	//Set values needed to begin parsing
 	token = headptr;
 	prev_token = nullptr;
 	Scopes = scopes;
 	warning = false;
 	error = false;
-	Program();
 	textLine = "";
 	currentLine = 0;
+	
+	//Start program parsing
+	Program();
 }
 
 Parser::~Parser(){
@@ -410,7 +413,7 @@ bool Parser::Assignment(string &id){
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
-		if( (size != dSize) || (type != dType) ) ReportError("Bad assignment, type and size must match destination");
+		if( (size != dSize) || ( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ReportWarning("Bad assignment, type and size must match destination");
 		return true;
 	}
 	else ReportError("expected ':=' after destination in assignment statement");	
