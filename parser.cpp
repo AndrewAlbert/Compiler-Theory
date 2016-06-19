@@ -593,18 +593,15 @@ bool Parser::ArithOp(int &type, int &size){
 	if( Relation(type1, size1) ){
 		bool next = false;
 		if(CheckToken(T_ADD)){
-			cout << "type1: " << type1 << endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
-			cout << "type1: " << type1 << endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		while(next){
 			if( !Relation(type2, size2) ) ReportError("expected Relation (+/-) as part of ArithOp");
-			cout << "type2: " << type2 << endl;
 			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
 			else{
 				if(size1 != 0 && size2 !=0 && size1 != size2) ReportError("incompatible array sizes");
@@ -676,8 +673,8 @@ bool Parser::Term(int &type, int &size){
 	int type1, type2, size1, size2;
 	if(Factor(type1, size1)){
 		bool next = false;
-		if(CheckToken(T_MULTIPLY)) next = true;
-		else if(CheckToken(T_DIVIDE)) next = true;
+		if( CheckToken(T_MULTIPLY) ) next = true;
+		else if( CheckToken(T_DIVIDE) ) next = true;
 
 		if(next){
 			//only allow arithmetic operations on integers and floats (conversion is allowed between the two)
@@ -697,7 +694,6 @@ bool Parser::Term(int &type, int &size){
 			}
 		}
 		type = type1;
-		cout << "Term type: " << type << endl;
 		return true;
 	}
 	else return false;
@@ -726,13 +722,13 @@ bool Parser::Factor(int &type, int &size){
 		else ReportError("expected expression within parenthesis of factor");
 	}
 	else if( CheckToken(T_SUBTRACT) ){
-		if( Name(tempType, tempSize) ){
+		if( Integer() ) type = TYPE_INTEGER;
+		else if( Float() ) type = TYPE_FLOAT;
+		else if( Name(tempType, tempSize) ){
 			type = tempType;
 			size = tempSize;
 			return true;
 		}
-		else if( Integer() ) type = TYPE_INTEGER;
-		else if( Float() ) type = TYPE_FLOAT;
 		else return false;
 	}
 	else if( Name(tempType, tempSize) ){
@@ -775,16 +771,16 @@ bool Parser::Name(int &type, int &size){
 		}
 
 		if( CheckToken(T_LBRACKET) ){
-			if(size < 1 && nameValue.type != TYPE_PROCEDURE) ReportError(id + " is not an array");
+			if(nameValue.size == 0 && nameValue.type != TYPE_PROCEDURE) ReportWarning(id + " is not an array");
 			int type2, size2;
 			if( Expression(type2, size2) ){
 				if( (size2 > 1) || ( (type2 != TYPE_INTEGER) && (type2 != TYPE_FLOAT) && (type2 != TYPE_BOOL) ) )
 					ReportWarning("array index must be a scalar numeric value");
 				size = 1;
 				if( CheckToken(T_RBRACKET) ) return true;
-				else ReportError("expected ']' after expression in name");
+				else ReportWarning("expected ']' after expression in name");
 			}
-			else ReportError("expected expression between brackets");
+			else ReportWarning("expected expression between brackets");
 		}
 		else return true;
 	}
@@ -800,7 +796,7 @@ bool Parser::Number(){
 
 // <integer> ::= [0-9][0-9]*
 bool Parser::Integer(){
-	return CheckToken(TYPE_IDENTIFIER);
+	return CheckToken(TYPE_INTEGER);
 }
 
 // <float> ::= [0-9][0-9]*[.[0-9]+]
