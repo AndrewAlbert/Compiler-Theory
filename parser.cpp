@@ -71,7 +71,10 @@ bool Parser::CheckToken(int type){
 		token = token->next;
 		return true;
 	}
-	else return false;
+	else{
+		if(token->type == T_UNKNOWN) ReportError("Found unknown token")
+		return false;
+	}
 }
 
 //<program> ::= <program_header> <program_body>
