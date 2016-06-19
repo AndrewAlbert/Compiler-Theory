@@ -13,7 +13,7 @@ program Main is
     integer tmp[5];
     integer i;
     begin
-      for( i = 0; i < 5)
+      for( i := 0; i < 5)
         tmp[i] := arrayIn[4-i];
         i := i + 1;
       end for

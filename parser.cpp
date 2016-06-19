@@ -26,6 +26,8 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	warning = false;
 	error = false;
 	Program();
+	textLine = "";
+	currentLine = 0;
 }
 
 Parser::~Parser(){
@@ -34,7 +36,7 @@ Parser::~Parser(){
 
 //report error line number and descriptive message
 void Parser::ReportError(string message){
-	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
+	string msg = "Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii;
 	warning_queue.push(msg);
 	error = true;
 	DisplayWarningQueue();
@@ -43,7 +45,7 @@ void Parser::ReportError(string message){
 
 //report error line number and descriptive message
 void Parser::ReportWarning(string message){
-	string msg = "Warning: " + message + " at line: " + to_string(token->line) + "\n\tFound: " + token->ascii;
+	string msg = "Warning: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii;
 	warning_queue.push(msg);
 	warning = true;
 	return;
@@ -65,14 +67,20 @@ bool Parser::CheckToken(int type){
 		prev_token = token;
 		token = token->next;
 	}
+
+	if(token->line != currentLine ){
+		currentLine = token->line;
+		textLine = "";
+	}
 	//check that current token matches input type, if so move to next token
 	if(token->type == type){
+		textLine.append(token->ascii + " ");
 		prev_token = token;
 		token = token->next;
 		return true;
 	}
 	else{
-		if(token->type == T_UNKNOWN) ReportError("Found unknown token")
+		if(token->type == T_UNKNOWN) ReportError("Found unknown token");
 		return false;
 	}
 }
