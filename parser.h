@@ -54,7 +54,7 @@ class Parser
 		
 		/* ArgumentList() is used by ProcedureCall() to return a vector of scopeValues to compare against the parameter list.
 		 * Each argument return in the vector has a type and size determined from using an Expression() statement */
-		vector<scopeValue> ArgumentList();
+		bool ArgumentList(vector<scopeValue> &list);
 		
 		/* Statement Calls. Statement() checks for one of the following statement types */
 		bool Statement();

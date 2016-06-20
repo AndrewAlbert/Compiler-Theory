@@ -31,6 +31,10 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	
 	//Start program parsing
 	Program();
+	cout << "Program parsing completed" << endl;
+	if(token == nullptr) cout << "nullptr finished" << endl;
+	else cout << "remaining tokens" << endl;
+	cout << "previous token: " << prev_token->type << endl;
 }
 
 Parser::~Parser(){
@@ -97,7 +101,6 @@ void Parser::declareRunTime(){
 	
 	//input / output parameter of the procedure
 	scopeValue inputVal;
-	inputVal.size = 0;
 	inputVal.arguments.clear();
 	
 	string IDs[10] = {"GETBOOL", "GETINTEGER", "GETFLOAT", "GETSTRING", "GETCHAR", "PUTBOOL", "PUTINTEGER", "PUTFLOAT", "PUTSTRING", "PUTCHAR"};
@@ -108,6 +111,9 @@ void Parser::declareRunTime(){
 		//clear parameter list
 		procVal.arguments.clear();
 		
+		if(Types[i] == TYPE_STRING) inputVal.size = STRING_SIZE;
+		else inputVal.size = 0;
+
 		//get new parameter values
 		inputVal.type = Types[i];
 		inputVal.paramType = ParamTypes[i];
@@ -334,7 +340,7 @@ bool Parser::ProcedureCall(string id){
 	
 	//get argument list used in the procedure call
 	if( CheckToken(T_LPAREN) ){
-		argList = ArgumentList();
+		ArgumentList(argList);
 		if( !CheckToken(T_RPAREN) ) ReportError("expected ')' closing procedure call");
 	}
 	else ReportError("expected '(' before procedure call's argument list");
@@ -348,9 +354,11 @@ bool Parser::ProcedureCall(string id){
 		while( (it1 != argList.end()) && (it2 != procedureCall.arguments.end()) ){
 			++it1;
 			++it2;
+			cout << "t1: " << it1->type << " s1: " << it1->size << endl;
+			cout << "t2: " << it2->type << " s2: " << it2->size << endl;
 			if(it1->type != it2->type) match = false;
 		}
-		if((it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match)) 
+		if( (it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match) ) 
 			ReportError("procedure call argument list does not match declared parameter list");
 		return true;
 	}
@@ -364,10 +372,10 @@ bool Parser::ProcedureCall(string id){
  *	 <expression> , <argument_list>
  *	|<expression>
  */
-vector<scopeValue> Parser::ArgumentList(){
+bool Parser::ArgumentList(vector<scopeValue> &list){
 	//create vector<scopeValue> where all argument list information will be stored and later returned by the function
-	vector<scopeValue> list;
-	
+	list.clear();
+
 	/* argEntry variable will contain argument information about expression type and size. 
 	 * All arguments will have an empty arguments vector and have their paramType = TYPE_PARAM_NULL
 	 * The procedure call, when checking these arguments, will not compare the paramType value against the declared values */
@@ -383,7 +391,7 @@ vector<scopeValue> Parser::ArgumentList(){
 			else ReportWarning("expected another argument after ',' in argument list of procedure call");
 		}
 	}
-	return list;
+	return true;
 }
 
 
@@ -783,7 +791,11 @@ bool Parser::Factor(int &type, int &size){
 	}
 	else if( Integer() ) type = TYPE_INTEGER;
 	else if( Float() ) type = TYPE_FLOAT;
-	else if( String() ) type = TYPE_STRING;
+	else if( String() ){
+		type = TYPE_STRING;
+		size = STRING_SIZE;
+		return true;
+	}
 	else if( Char() ) type = TYPE_CHAR;
 	else if( CheckToken(T_FALSE) ) type = TYPE_BOOL;
 	else if( CheckToken(T_TRUE) ) type = TYPE_BOOL;
