@@ -57,7 +57,7 @@ void scope::printScope(){
 	map<string, scopeValue>::iterator it;
 	for(it = localTable.begin(); it != localTable.end(); it++){
 		cout << "id: " << it->first;
-		cout << "\ttype: " << it->second.type << endl;
+		cout << "\ttype: " << it->second.type << "\tsize: " << it->second.size << endl;
 		cout << "\tparameters:\t";
 		vector<scopeValue> Vec = it->second.arguments;		
 		vector<scopeValue>::size_type vec_it;

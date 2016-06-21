@@ -31,10 +31,9 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	
 	//Start program parsing
 	Program();
-	cout << "Program parsing completed" << endl;
-	if(token == nullptr) cout << "nullptr finished" << endl;
-	else cout << "remaining tokens" << endl;
-	cout << "previous token: " << prev_token->type << endl;
+	
+	if(token == nullptr) cout << "Program parsing completed" << endl;
+	else ReportError("Tokens remaining. Parsing failed.");
 }
 
 Parser::~Parser(){
@@ -43,7 +42,7 @@ Parser::~Parser(){
 
 //report error line number and descriptive message
 void Parser::ReportError(string message){
-	string msg = "Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii;
+	string msg = "Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii + " " + token->next->ascii;
 	warning_queue.push(msg);
 	error = true;
 	DisplayWarningQueue();
@@ -173,7 +172,9 @@ bool Parser::ProgramBody(){
 		}
 		else ReportError("expected 'end'");
 	}
-	else ReportError("expected 'begin'");
+	else{
+		ReportError("expected 'begin'");
+	}
 }
 
 /*	<declaration> ::=
@@ -202,6 +203,7 @@ bool Parser::Declaration(){
 	}
 	else if( VariableDeclaration(id, newSymbol) ){
 		//Add symbol to current scope. VariableDeclaration will assign the symbol's type and size members.
+		cout << "add: " << id << endl;
 		Scopes->addSymbol(id, newSymbol, global);
 		return true;
 	}
@@ -231,10 +233,10 @@ bool Parser::VariableDeclaration(string &id, scopeValue &varEntry){
 			}
 			else ReportError("expected integer for array size");
 		}
-		
-		//set size = 0 for scalar variables
-		varEntry.size = 0;
-		return true;
+		else{
+			varEntry.size = 0;
+			return true;
+		}
 	}
 	else ReportError("expected variable identifier");
 }
@@ -347,19 +349,17 @@ bool Parser::ProcedureCall(string id){
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
 	if( Scopes->checkSymbol(id, procedureCall) ){
-		string calledArgs, declaredArgs, typeName;
 		bool match = true;
 		vector<scopeValue>::iterator it1 = argList.begin();
 		vector<scopeValue>::iterator it2 = procedureCall.arguments.begin();
 		while( (it1 != argList.end()) && (it2 != procedureCall.arguments.end()) ){
+			if(it1->type != it2->type) match = false;
 			++it1;
 			++it2;
-			cout << "t1: " << it1->type << " s1: " << it1->size << endl;
-			cout << "t2: " << it2->type << " s2: " << it2->size << endl;
-			if(it1->type != it2->type) match = false;
 		}
-		if( (it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match) ) 
+		if( (it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match) ){
 			ReportError("procedure call argument list does not match declared parameter list");
+		}
 		return true;
 	}
 	else{
@@ -456,7 +456,11 @@ bool Parser::Assignment(string &id){
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
-		if( (size != dSize) || ( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ) ReportWarning("Bad assignment, type and size must match destination");
+		if(size != dSize){
+			ReportWarning("Bad assignment, size must match destination");
+			cout << "size: " << size << " dSize: " << dSize << endl;
+		}
+		if( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ReportWarning("Bad assignment, type must match destination");
 		return true;
 	}
 	else ReportError("expected ':=' after destination in assignment statement");	
@@ -477,14 +481,20 @@ bool Parser::Destination(string &id, int &dType, int &dSize){
 		
 		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
-		else dType = destinationValue.type;
+		else{
+			dType = destinationValue.type;
+			dSize = destinationValue.size;
+		}
 		
 		if(CheckToken(T_LBRACKET)){
 			if( Expression(type, size) ){
 				//ensure array index is a single numeric value
 				if( size != 0 || ( (type != TYPE_FLOAT) && ( type != TYPE_INTEGER) && ( type != TYPE_BOOL) ) ) 
 					ReportWarning("destination array's index must be a scalar numeric value");
-				if( CheckToken(T_RBRACKET) ) return true;
+				if( CheckToken(T_RBRACKET) ){
+					dSize = 0;
+					return true;
+				}
 				else ReportError("expected ']' after destination array's index");
 			}
 			else ReportError("expected scalar numeric expression in array index");
@@ -598,7 +608,6 @@ bool Parser::ReturnStatement(){
  *		|{ not } <arithOp>
  */
 bool Parser::Expression(int &type, int &size){
-	cout << "Expression" << endl;
 	//temporary type and size variables to evaluate the Expression's resulting type and size
 	int type1, type2, size1, size2;
 	
@@ -608,22 +617,28 @@ bool Parser::Expression(int &type, int &size){
 	
 	//get type and size of first arithOp
 	if( ArithOp(type1, size1) ){
+		type = type1;
+		size = size1;
 		//if a bitwise logical statement occurs in the expression, all ArithOps must be integer values
-		while( CheckToken(T_LOGICAL) ){
+		while( CheckToken(T_BITWISE) ){
+			cout << "T_BITWISE" << endl;
 			if( CheckToken(T_NOT) ) notSymbol = true;
 			else notSymbol = false;
 			
 			//get type and size of each additional arithOps
 			if( !ArithOp(type2, size2) ) ReportError("expected ArithOp");
-			if( (type1 != type2) || (type2 != TYPE_INTEGER) ) ReportWarning("only integer values are allowed for bitwise expressions");
+			if( (type1 == TYPE_INTEGER) && (type2 != TYPE_INTEGER) ) ReportWarning("only integer values are allowed for bitwise expressions");
+			else if((type1 == TYPE_BOOL) && (type2 != TYPE_BOOL)) ReportWarning("only boolean values are allowed for logical '|' and '&'");
+			else type = TYPE_BOOL;
+			
 			
 			//ensure ArithOp sizes match for arrays, scalar values (size = 0) will always be compatible
 			if( size1 != 0 && size2 != 0 && size1 != size2) ReportWarning("incompatible array sizes in bitwise expression");
 			else if(size2 != 0) size1 = size2;
 		}
 		//return expression's final type and size
-		type = type1;
-		size = size1;
+		//type = type1;
+		//size = size1;
 		return true;
 	}
 	else if (notSymbol) ReportError("expected an ArithOp following 'NOT'");
@@ -636,21 +651,23 @@ bool Parser::Expression(int &type, int &size){
  *		<relation>
  */
 bool Parser::ArithOp(int &type, int &size){
-	cout << "ArithOp" << endl;
 	int type1, type2, size1, size2;
 	bool next;
 	
 	if( Relation(type1, size1) ){
 		next = false;
-		if(CheckToken(T_ADD)){
+		if(CheckToken(T_ADD)){	
+			cout <<"T_ADD"<<endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
+			cout<<"T_SUBTRACT"<<endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		while(next){
+			cout<<"Next arithop"<<endl;
 			if( !Relation(type2, size2) ) ReportError("expected Relation (+/-) as part of ArithOp");
 			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
 			else{
@@ -679,11 +696,14 @@ bool Parser::ArithOp(int &type, int &size){
  *		|<term>
  */
 bool Parser::Relation(int &type, int &size){
-	cout << "Relation" << endl;
 	int type1, type2, size1, size2;
 	bool next = false;
 	if( Term(type1, size1) ){
+		type = type1;
+		size = size1;
+		cout<<"Check compare"<<endl;
 		if( CheckToken(T_COMPARE) ){
+			cout << "T_COMPARE" <<endl;
 			if(type1 == TYPE_INTEGER || type1 == TYPE_BOOL){
 				type1 = TYPE_BOOL;
 				next = true;
@@ -705,11 +725,13 @@ bool Parser::Relation(int &type, int &size){
 			else if(size2 != 0){
 				size1 = size2;
 			}
-			if(!CheckToken(T_COMPARE)) next = false;
+			if(!CheckToken(T_COMPARE)){
+				cout << "!T_COMPARE" << endl;
+				next = false;
+			}
 		}
 		type = type1;
 		size = size1;
-		cout << "Relation type: " << type1 << endl;
 		return true;
 	}
 	else return false; 
@@ -721,7 +743,6 @@ bool Parser::Relation(int &type, int &size){
  *		|<factor>
  */
 bool Parser::Term(int &type, int &size){
-	cout << "Term" << endl;
 	int type1, type2, size1, size2;
 	if(Factor(type1, size1)){
 		bool next = false;
@@ -746,6 +767,7 @@ bool Parser::Term(int &type, int &size){
 			}
 		}
 		type = type1;
+		size = size1;
 		return true;
 	}
 	else return false;
@@ -761,7 +783,6 @@ bool Parser::Term(int &type, int &size){
  *		|true
  */
 bool Parser::Factor(int &type, int &size){
-	cout << "Factor" << endl;
 	int tempType, tempSize;
 	if( CheckToken(T_LPAREN) ){
 		if( Expression(tempType, tempSize) ){
@@ -833,7 +854,7 @@ bool Parser::Name(int &type, int &size){
 			if( Expression(type2, size2) ){
 				if( (size2 > 1) || ( (type2 != TYPE_INTEGER) && (type2 != TYPE_FLOAT) && (type2 != TYPE_BOOL) ) )
 					ReportWarning("array index must be a scalar numeric value");
-				size = 1;
+				size = 0;
 				if( CheckToken(T_RBRACKET) ) return true;
 				else ReportWarning("expected ']' after expression in name");
 			}

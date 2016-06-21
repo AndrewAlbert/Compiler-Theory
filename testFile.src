@@ -16,13 +16,13 @@ program Main is
       for( i := 0; i < 5)
         tmp[i] := arrayIn[4-i];
         i := i + 1;
-      end for
-      arrayIn = tmp;
+      end for;
+      arrayIn := tmp;
     end procedure;
-  
-  procedure XoR(bool array1[3] in, bool array2[3] in, bool result[3] out)
-    bool orTmp[5];
-    bool andTmp[5];
+ 
+  procedure XoR(integer array1[3] in, integer array2[3] in, bool result[3] out)
+    bool orTmp[3];
+    bool andTmp[3];
     begin
       orTmp := array1 | array2;
       andTmp := array1 & array2;
@@ -32,9 +32,9 @@ program Main is
   procedure compare(integer array0[5] in, integer array1[5] in, bool result[5] out)
     integer i;
     begin
-      for( i = 0; i < 5)
+      for( i := 0; i < 5)
         if(array0[i] != array1[i]) then result[i] = false;
-        else result[i] = true;
+        else result[i] := true;
         end if
       end for
     end procedure;
@@ -47,7 +47,7 @@ begin
   int1[3] := 3;
   int1[4] := 4;
   compare( int0, int1, intResult);
-  reverseArray(int0)
+  reverseArray(int0);
   compare( int0, int1, intResult);
   
   bool0 := true;

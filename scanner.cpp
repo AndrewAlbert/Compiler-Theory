@@ -288,7 +288,8 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 					ungetc(ch,fPtr);
 					return T_UNKNOWN;
 				}
-				
+			case '&': case '|':
+				return T_BITWISE;			
 			default: return T_UNKNOWN;
 		}
 	}

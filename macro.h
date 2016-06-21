@@ -31,7 +31,7 @@ struct scopeValue{
 #define T_SEMICOLON 300
 #define T_LPAREN 301
 #define T_RPAREN 302
-#define T_COMPARE 303
+#define T_COMPARE 313
 #define T_DIVIDE 304
 #define T_MULTIPLY 305
 #define T_ADD 306
@@ -43,6 +43,7 @@ struct scopeValue{
 #define T_RCARET 312
 #define T_LOGICAL 313
 #define T_ASSIGNMENT 314
+#define T_BITWISE 315
 
 //reserved keywords
 #define T_PROGRAM 257
@@ -89,6 +90,6 @@ struct scopeValue{
 #define T_EOF 349		//EOF
 #define T_UNKNOWN 350	//unknown token
 
-#define STRING_SIZE -1
+#define STRING_SIZE 0
 
 #endif
