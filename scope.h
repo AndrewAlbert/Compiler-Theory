@@ -20,8 +20,9 @@ class scope
 		 */
 		map<string, scopeValue > globalTable;
 		map<string, scopeValue > localTable;
+		string name;
 	public:
-		scope();
+		scope(string id);
 		~scope();
 		
 		//pointer to parent scope one level up
@@ -30,6 +31,9 @@ class scope
 		//print, purely for debugging purposes
 		void printScope();
 		
+		//used as a label for the scope table. Will be useful for code generation.
+		void setName(string id);
+
 		//symbol table management
 		bool addSymbol(string identifier, bool global, scopeValue value);
 		bool checkSymbol(string identifier, bool global);

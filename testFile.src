@@ -3,8 +3,8 @@ program Main is
   bool intResult[5];
   integer int0[5];
   integer int1[5];
-  bool bool0[3];
-  bool bool1[3];
+  integer int2[3];
+  integer int3[3];
   bool boolResult[3];
   bool flag;
   
@@ -33,10 +33,10 @@ program Main is
     integer i;
     begin
       for( i := 0; i < 5)
-        if(array0[i] != array1[i]) then result[i] = false;
+        if(array0[i] != array1[i]) then result[i] := false;
         else result[i] := true;
-        end if
-      end for
+        end if;
+      end for;
     end procedure;
 
 begin
@@ -54,8 +54,8 @@ begin
   bool1[0] := false;
   bool1[1] := true;
   bool1[2] := true;
-  XoR(bool0, bool1, boolResult)
-  
+  //XoR(int2, int3, boolResult);
+  bool0 := 5.5;
   flag := boolResult[0];
-  
+
 end program.

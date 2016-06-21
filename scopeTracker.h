@@ -18,7 +18,7 @@ class scopeTracker
 	public:
 		scopeTracker();
 		~scopeTracker();
-		void newScope();
+		void newScope(string scopeID);
 		void exitScope();
 		bool addSymbol(string identifier, scopeValue value, bool global);
 		//identical to addSymbol, but for one scope level up. Used to add procedure declaration to its parent scope and own scope

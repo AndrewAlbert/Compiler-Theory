@@ -42,7 +42,7 @@ Parser::~Parser(){
 
 //report error line number and descriptive message
 void Parser::ReportError(string message){
-	string msg = "Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii + " " + token->next->ascii;
+	string msg = "Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii;
 	warning_queue.push(msg);
 	error = true;
 	DisplayWarningQueue();
@@ -80,13 +80,18 @@ bool Parser::CheckToken(int type){
 	}
 	//check that current token matches input type, if so move to next token
 	if(token->type == type){
+		cout << "Type match: " << token->ascii << " type: " << token->type << " to " << type << endl;
 		textLine.append(token->ascii + " ");
 		prev_token = token;
 		token = token->next;
 		return true;
 	}
 	else{
-		if(token->type == T_UNKNOWN) ReportError("Found unknown token");
+		if(token->type == T_UNKNOWN){
+			ReportWarning("Found unknown token");
+			token = token->next;
+			return CheckToken(type);
+		}
 		return false;
 	}
 }
@@ -129,7 +134,7 @@ void Parser::declareRunTime(){
 
 //<program> ::= <program_header> <program_body>
 void Parser::Program(){
-	Scopes->newScope(); //Create new scope for the program
+	Scopes->newScope("program"); //Create new scope for the program
 	declareRunTime(); //set up runtime functions as global in the outermost scope
 	if( !ProgramHeader() ) ReportError("Expected program header");
 	if( !ProgramBody() ) ReportError("Expected program body");
@@ -203,7 +208,6 @@ bool Parser::Declaration(){
 	}
 	else if( VariableDeclaration(id, newSymbol) ){
 		//Add symbol to current scope. VariableDeclaration will assign the symbol's type and size members.
-		cout << "add: " << id << endl;
 		Scopes->addSymbol(id, newSymbol, global);
 		return true;
 	}
@@ -223,7 +227,6 @@ bool Parser::VariableDeclaration(string &id, scopeValue &varEntry){
 	if( Identifier() ){
 		//get variable identifier
 		id = prev_token->ascii;
-		
 		//get size for array variables
 		if(CheckToken(T_LBRACKET)){
 			if(CheckToken(TYPE_INTEGER)){
@@ -275,7 +278,7 @@ bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration, bool 
 bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool global){
 	if( CheckToken(T_PROCEDURE) ){
 		//Create new scope in nested symbol tables for the procedure
-		Scopes->newScope();
+		Scopes->newScope("procedure");
 		
 		//Set the symbol table entry's type and size to the correct values for a procedure
 		procDeclaration.type = TYPE_PROCEDURE;
@@ -478,9 +481,13 @@ bool Parser::Destination(string &id, int &dType, int &dSize){
 	if( Identifier() ){
 		id = prev_token->ascii;
 		found = Scopes->checkSymbol(id, destinationValue);
-		
 		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
+		else if(!found){
+			ReportWarning("Destination " + id + "was not declared in this scope");
+			dType = T_UNKNOWN;
+			dSize = 0;
+		}
 		else{
 			dType = destinationValue.type;
 			dSize = destinationValue.size;
@@ -621,7 +628,6 @@ bool Parser::Expression(int &type, int &size){
 		size = size1;
 		//if a bitwise logical statement occurs in the expression, all ArithOps must be integer values
 		while( CheckToken(T_BITWISE) ){
-			cout << "T_BITWISE" << endl;
 			if( CheckToken(T_NOT) ) notSymbol = true;
 			else notSymbol = false;
 			
@@ -657,17 +663,14 @@ bool Parser::ArithOp(int &type, int &size){
 	if( Relation(type1, size1) ){
 		next = false;
 		if(CheckToken(T_ADD)){	
-			cout <<"T_ADD"<<endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		else if(CheckToken(T_SUBTRACT)){
-			cout<<"T_SUBTRACT"<<endl;
 			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
 			next = true;
 		}
 		while(next){
-			cout<<"Next arithop"<<endl;
 			if( !Relation(type2, size2) ) ReportError("expected Relation (+/-) as part of ArithOp");
 			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
 			else{
@@ -701,9 +704,7 @@ bool Parser::Relation(int &type, int &size){
 	if( Term(type1, size1) ){
 		type = type1;
 		size = size1;
-		cout<<"Check compare"<<endl;
 		if( CheckToken(T_COMPARE) ){
-			cout << "T_COMPARE" <<endl;
 			if(type1 == TYPE_INTEGER || type1 == TYPE_BOOL){
 				type1 = TYPE_BOOL;
 				next = true;
@@ -726,7 +727,6 @@ bool Parser::Relation(int &type, int &size){
 				size1 = size2;
 			}
 			if(!CheckToken(T_COMPARE)){
-				cout << "!T_COMPARE" << endl;
 				next = false;
 			}
 		}

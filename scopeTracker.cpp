@@ -4,23 +4,23 @@
 #include <cstdio>
 
 scopeTracker::scopeTracker(){
-
+	tmpPtr = nullptr;
+	curPtr = nullptr;
 }
 
 scopeTracker::~scopeTracker(){
 
 }
 
-void scopeTracker::newScope(){
+void scopeTracker::newScope(string scopeID){
 	if(curPtr != nullptr){
 		tmpPtr = curPtr;
-		curPtr = new scope();
+		curPtr = new scope(scopeID);
 		curPtr->prevScope = tmpPtr;
-		tmpPtr = nullptr;
 	}
 	else{
-		curPtr = new scope();
-		curPtr->prevScope = nullptr;
+		curPtr = new scope(scopeID);
+		curPtr->prevScope = tmpPtr;
 	}
 }
 
@@ -31,6 +31,7 @@ void scopeTracker::exitScope(){
 		curPtr = curPtr->prevScope;
 		delete tmpPtr;
 	}
+	else cout << "not in a scope!" << endl;
 }
 
 bool scopeTracker::addSymbol(string identifier, scopeValue value, bool global){
@@ -58,14 +59,20 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 
 //returns true if symbol exists and puts its table entry into &value
 bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
-	tmpPtr = curPtr;
+	if(curPtr == nullptr) return false;
+	else tmpPtr = curPtr;
 	//check local symbols of current scope
 	bool found = tmpPtr->checkSymbol(identifier, false);
 	if(found){
 		value = tmpPtr->getSymbol(identifier);
 		return true;
 	}
-	else tmpPtr = tmpPtr->prevScope;
+	else if(tmpPtr->prevScope != nullptr){
+		tmpPtr = tmpPtr->prevScope;
+	}
+	else{
+		return false;
+	}
 	//check global symbols of all upper scopes
 	while(tmpPtr != nullptr){
 		found = tmpPtr->checkSymbol(identifier, true);
@@ -73,7 +80,10 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 			value = tmpPtr->getSymbol(identifier);
 			return true;
 		}
-		else tmpPtr = tmpPtr->prevScope;
+		else{
+			if(tmpPtr->prevScope == nullptr) return false;
+			else tmpPtr = tmpPtr->prevScope;
+		}
 	}
 	return false;
 }

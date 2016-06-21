@@ -6,14 +6,23 @@
 
 using namespace std;
 
-scope::scope(){
-
+/* Set initial scope 'name' will only be valid for the program.
+ * Procedures will set their name later. */
+scope::scope(string id){
+	name = id;
 }
 
 scope::~scope(){
 
 }
 
+//Change the string 'name' member of this scope
+void scope::setName(string id){
+	name = id;
+	return;
+}
+
+//Add procedure or variable symbol to this scope's local and/or global table along with scopeValue attributes.
 bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	map<string, scopeValue>::iterator it;
 	it = localTable.find(identifier);
@@ -24,20 +33,22 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	}
 }
 
+//check to see if the given symbol exists in this scope's local or global symbol table.
 bool scope::checkSymbol(string identifier, bool global){
 	map<string, scopeValue>::iterator it;
 	if(global){
 		it = globalTable.find(identifier);
-		if(it != globalTable.end()) return true;
+		if( it != globalTable.end() ) return true;
 		else return false;
 	}
 	else{
 		it = localTable.find(identifier);
-		if(it != localTable.end()) return true;
+		if( it != localTable.end() ) return true;
 		else return false;
 	}
 }
 
+//Get symbol identifier's scopeValue from this scope's local table if one exists.
 scopeValue scope::getSymbol(string identifier){
 	map<string, scopeValue>::iterator it;
 	it = localTable.find(identifier);
@@ -52,8 +63,9 @@ scopeValue scope::getSymbol(string identifier){
 	}
 }
 
+//print the local table entries
 void scope::printScope(){
-	cout << "SCOPE:\n\nLocal Table:\n";
+	cout << "SCOPE: " << name << "\n\nLocal Table:\n";
 	map<string, scopeValue>::iterator it;
 	for(it = localTable.begin(); it != localTable.end(); it++){
 		cout << "id: " << it->first;
