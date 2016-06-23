@@ -27,6 +27,7 @@ class Parser
 		void DisplayWarningQueue();
 		bool warning;
 		bool error;
+		bool lineError;
 		string textLine;
 		int currentLine;
 		void ReportFatalError(string message);

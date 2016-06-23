@@ -28,6 +28,7 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	error = false;
 	textLine = "";
 	currentLine = 0;
+	lineError = false;
 	
 	//Start program parsing
 	Program();
@@ -35,7 +36,12 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	if(token == nullptr) cout << "Program parsing completed" << endl;
 	else ReportError("Tokens remaining. Parsing failed.");
 	
-	if(error) DisplayWarningQueue();
+	DisplayWarningQueue();
+
+	if(error) cout << "Parser completed with some errors." << endl;
+	else if(warning) cout << "Parser completed with some warnings." << endl;
+	else cout << "Parser completed with no errors or warnings." << endl;
+
 }
 
 Parser::~Parser(){
@@ -44,7 +50,7 @@ Parser::~Parser(){
 
 //Report error and terminate parsing.
 void Parser::ReportFatalError(string message){
-	warning_queue.push("Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii);
+	warning_queue.push("Fatal Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii);
 	error = true;
 	DisplayWarningQueue();
 	exit(EXIT_FAILURE);
@@ -52,14 +58,27 @@ void Parser::ReportFatalError(string message){
 
 //report error line number and desriptive message. Get tokens until the next line or a ';' is found.
 void Parser::ReportLineError(string message){
-	warning_queue.push("Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii);
 	error = true;
+	lineError = true;
 	bool getNext = true;
 	while(getNext){
+		textLine.append(" " + token->ascii);
 		token = token->next;
 		if(token->line != currentLine) getNext = false;
 		else if( CheckToken(T_SEMICOLON) ) getNext = false;
+		/*else{
+			//attempt to resync for structure keywords
+			switch(token->type){
+				case T_BEGIN: case T_END: case T_PROCEDURE: case T_THEN: case T_ELSE: case T_FOR:
+					getNext = false;
+					break;
+				default:
+					break;
+			}
+		}*/
 	}
+	warning_queue.push("Line Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine);
+	textLine = "";
 	currentLine = token->line;
 	return;
 }
@@ -81,7 +100,7 @@ void Parser::ReportWarning(string message){
 //display all of the stored warnings after parsing is complete or a fatal error occurs
 void Parser::DisplayWarningQueue(){
 	while(!warning_queue.empty()){
-		cout << warning_queue.front() << endl;
+		cout << warning_queue.front() << "\n" << endl;
 		warning_queue.pop();
 	}
 	return;
@@ -101,6 +120,12 @@ bool Parser::CheckToken(int type){
 	}
 	//check that current token matches input type, if so move to next token
 	if(token->type == type){
+		//handles line error checks for semicolons.
+		/*if(type == T_SEMICOLON && lineError){
+			lineError = false;
+			return true;
+		}*/
+		textLine.append(" " + token->ascii);
 		prev_token = token;
 		token = token->next;
 		return true;
@@ -158,6 +183,7 @@ void Parser::Program(){
 	if( !ProgramBody() ) ReportError("Expected program body");
 	if( !CheckToken(T_PERIOD) ) ReportWarning("expected '.' at end of program");
 	if( CheckToken(T_EOF) ) Scopes->exitScope(); //exit program scope once program ends
+		
 	else ReportError("Found some tokens remaining in file when end of program was expected");
 }
 
@@ -190,7 +216,7 @@ bool Parser::ProgramBody(){
 	//Get Procedure and Variable Declarations
 	while(true){
 		while( Declaration() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportError("Expected ';' at end of declaration in program body");
+			if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' at end of declaration in program body");
 		}
 		if(CheckToken(T_BEGIN)){
 			//reset resync for statemnets
@@ -198,7 +224,7 @@ bool Parser::ProgramBody(){
 			while(true){
 				//get all valid statements
 				while( Statement() ){
-					if( !CheckToken(T_SEMICOLON) ) ReportError("Expected ';' at end of statement in program body.");
+					if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' at end of statement in program body.");
 				}
 				//get program body's end
 				if(CheckToken(T_END)){
@@ -208,7 +234,7 @@ bool Parser::ProgramBody(){
 				//use up resync attempt if parser can't find a statement or 'end'
 				else if(resyncEnabled){
 					resyncEnabled = false;
-					ReportLineError("Bad line. Expected Statement or 'END' reserved keyword in program body.")
+					ReportLineError("Bad line. Expected Statement or 'END' reserved keyword in program body.");
 				}
 				//if resync failed, report a fatal error
 				else ReportFatalError("Parser resync failed. Could not find another valid statement or end of program.");
@@ -217,7 +243,7 @@ bool Parser::ProgramBody(){
 		//use up resync attempt if parser can't find a declaration or 'begin'
 		else if(resyncEnabled){
 			resyncEnabled = false;
-			ReportLineError("Bad line. Expected Declaration or 'BEGIN' reserved keyword in program body.")
+			ReportLineError("Bad line. Expected Declaration or 'BEGIN' reserved keyword in program body.");
 		}
 		//if resync failed, report a fatal error
 		else{
@@ -338,7 +364,7 @@ bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool globa
 		//get procedure identifier and set value to be added to the symbol table
 		if( Identifier() ){
 			id = prev_token->ascii;
-			Scopes->setName(id);
+			//Scopes->setName(id);
 			
 			//get parameter list for the procedure, if it has parameters
 			if( CheckToken(T_LPAREN) ){
@@ -372,7 +398,7 @@ bool Parser::ProcedureBody(){
 	//get symbol declarations for next procedure
 	while(true){
 		while( Declaration() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportError("expected ';' after declaration in procedure");
+			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after declaration in procedure");
 		}
 		
 		//get statements for procedure body
@@ -380,7 +406,7 @@ bool Parser::ProcedureBody(){
 			resyncEnabled = true;
 			while(true){
 				while( Statement() ){
-					if( !CheckToken(T_SEMICOLON) ) ReportError("expected ';' after statement in procedure");
+					if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in procedure");
 				}
 				if( CheckToken(T_END) ){
 					if( CheckToken(T_PROCEDURE) ) return true;
@@ -429,10 +455,7 @@ bool Parser::ProcedureCall(string id){
 		ArgumentList(argList);
 		if( !CheckToken(T_RPAREN) ) ReportLineError("Expected ')' closing procedure call");
 	}
-	else ReportError("expected '(' before procedure call's argument list"){
-		ArgumentList(argList);
-		if( !CheckToken(T_RPAREN) ) ReportLineError("Expected '" + id + "( <argument list> )' as procedure call");
-	}
+	else ReportError("expected '(' in procedure call");
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
 	if( Scopes->checkSymbol(id, procedureCall) ){
@@ -440,7 +463,7 @@ bool Parser::ProcedureCall(string id){
 		vector<scopeValue>::iterator it1 = argList.begin();
 		vector<scopeValue>::iterator it2 = procedureCall.arguments.begin();
 		while( (it1 != argList.end()) && (it2 != procedureCall.arguments.end()) ){
-			if( (it1->type != it2->type) || (it1->size != it2->type) ) match = false;
+			if( (it1->type != it2->type) || (it1->size != it2->size) ) match = false;
 			++it1;
 			++it2;
 		}
@@ -546,7 +569,7 @@ bool Parser::Assignment(string &id){
 		if(size != dSize){
 			ReportError("Bad assignment, size of expression must match destination's size.");
 		}
-		if( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ReportWarning("Bad assignment, type must match destination");
+		if( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ReportError("Bad assignment, type must match destination");
 		return true;
 	}
 	else{
@@ -621,12 +644,10 @@ bool Parser::IfStatement(){
 	if( !CheckToken(T_IF) ) return false;
 	
 	//get expression for conditional statement: '( <expression> )'
-	if( !CheckToken(T_LPAREN) ) ReportError("expected '(' before condition in if statement");
-	
-	if( !Expression(type, size) ) ReportError("Expected condition for if statement");
-	else if (type != TYPE_BOOL) ReportError("Conditional expression in if statement must evaluate to type bool.");
-	
-	if( !CheckToken(T_RPAREN) ) ReportError("expected ')' after condition in if statement");
+	if( !CheckToken(T_LPAREN) ) ReportLineError("expected '(' before condition in if statement");
+	else if( !Expression(type, size) ) ReportLineError("Expected condition for if statement");
+	else if (type != TYPE_BOOL) ReportLineError("Conditional expression in if statement must evaluate to type bool.");
+	else if( !CheckToken(T_RPAREN) ) ReportLineError("expected ')' after condition in if statement");
 	
 	
 	/* Get statements to be evaluated if the statement's expression evaluates to true. 
@@ -636,7 +657,7 @@ bool Parser::IfStatement(){
 		while(true){
 			while( Statement() ){
 				flag = true;
-				if( !CheckToken(T_SEMICOLON) ) ReportError("expected ';' after statement in if statement");
+				if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in if statement");
 			}
 			if( !flag ) ReportError("expected at least one statement after 'then' in if statement");
 			/* Get statements to be evaluated if the statement's expression evaluates to false. 
@@ -647,17 +668,17 @@ bool Parser::IfStatement(){
 				while(true){
 					while( Statement() ){
 						flag = true;
-						if( !CheckToken(T_SEMICOLON) ) ReportError("Expected ';' after statement in if statement.");
+						if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' after statement in if statement.");
 					}
 					/* check for correct closure of statement: 'end if' */
-					else if( CheckToken(T_END) ){
+					if( CheckToken(T_END) ){
 						if( !flag ) ReportError("expected at least one statement after 'else' in if statement.");
 						if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of the if statement");
 						return true;
 					}
 					else if(resyncEnabled){
 						resyncEnabled = false;
-						ReportLineError("Bad Line. Unable to find valid statement or 'else' or 'end' reserved keywords.")
+						ReportLineError("Bad Line. Unable to find valid statement or 'else' or 'end' reserved keywords.");
 					}
 					else ReportFatalError("Parser resync failed. Unable to find valid statement, 'else' or 'end if' reserved keywords.");
 				}
@@ -669,7 +690,7 @@ bool Parser::IfStatement(){
 			}
 			else if(resyncEnabled){
 				resyncEnabled = false;
-				ReportLineError("Bad Line. Unable to find valid statement or 'else' or 'end' reserved keywords.")
+				ReportLineError("Bad Line. Unable to find valid statement or 'else' or 'end' reserved keywords.");
 			}
 			else ReportFatalError("Parser resync failed. Unable to find valid statement, 'else' or 'end if' reserved keywords.");
 		}
@@ -700,7 +721,7 @@ bool Parser::LoopStatement(){
 	
 	while(true){
 		while( Statement() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after statement in for loop");
+			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in for loop");
 		}
 		
 		/* check for correct closure of loop: 'end loop' */
@@ -709,7 +730,7 @@ bool Parser::LoopStatement(){
 			return true;
 		}
 		else if(resyncEnabled){
-			resyncEnabled = false
+			resyncEnabled = false;
 			ReportLineError("Bad line. Could not find a valid statement or 'end' reserved keyword in loop statement.");
 		}
 		else{
@@ -759,7 +780,7 @@ bool Parser::ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError
 		CheckToken(T_NOT); //'NOT' is always optional and will be good for both integer-bitwise and boolean-boolean expressions.
 		if( ArithOp(arithOpType, arithOpSize) ){
 			if( catchTypeError ){
-				if( (inputType == TYPE_INTEGER){
+				if(inputType == TYPE_INTEGER){
 					if(arithOpType != TYPE_INTEGER){
 						ReportError("Only integer ArithOps can be used for bitwise operators '&' and '|'.");
 						catchTypeError = false;
@@ -775,12 +796,12 @@ bool Parser::ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError
 			}
 			if( catchSizeError ){
 				//Ensure compatible sizes are used.
-				if( (inputSize != arithOpSize) && ( (inputSize != 0) && (arithOpSize != 0) ){
-					ReportError("Expected ArithOp of size " + to_string(inputSize) + ", but found one of size " + to_string(exprSize) + ".");
+				if( (inputSize != arithOpSize) && (inputSize != 0) && (arithOpSize != 0) ){
+					ReportError("Expected ArithOp of size " + to_string(inputSize) + ", but found one of size " + to_string(arithOpSize) + ".");
 					catchSizeError = false;
 				}
 				//Set new inputSize if the next ArithOp's size was non-zero and inputSize was zero.
-				else if(exprSize != 0) inputSize = exprSize;
+				else if(arithOpSize != 0) inputSize = arithOpSize;
 			}
 		}
 		else{
@@ -810,7 +831,7 @@ bool Parser::ArithOp(int &type, int &size){
  *		|	- <relation> <arithOp'>
  *		|	null
  */
-bool Parser:ArithOpPrime( int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError ){
+bool Parser::ArithOpPrime( int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError ){
 	//Size and type of next Relation in the ArithOp sequence
 	int relationType, relationSize;
 	
@@ -820,18 +841,18 @@ bool Parser:ArithOpPrime( int &inputType, int &inputSize, bool catchTypeError, b
 	else return false;
 	
 	//Get next Relation. Otherwise report Missing Relation error.
-	if( Relation(opType, opSize)){
+	if( Relation(relationType, relationSize)){
 		//Only allow number (integer / float) relations in arithmetic operations.
 		if(catchTypeError){
 			if( !isNumber(relationType) || !isNumber(inputType) ){
-				ReportError("Only integer and float values are allowed for arithmetic operations.")
+				ReportError("Only integer and float values are allowed for arithmetic operations.");
 				catchTypeError = false;
 			}
 		}
 		//Ensure compatible sizes are used in ArithOp.
 		if(catchSizeError){
 			//Error if sizes are not identical and both are non-zero
-			if( (inputSize != opSize) && ( (inputSize != 0) && (relationSize != 0) ){
+			if( (inputSize != relationSize) && (inputSize != 0) && (relationSize != 0) ){
 				ReportError("Expected Relation of size " + to_string(inputSize) + ", but found one of size " + to_string(relationSize) + ".");
 				catchSizeError = false;
 			}
@@ -874,19 +895,19 @@ bool Parser::RelationPrime(int &inputType, int &inputSize, bool catchTypeError, 
 	//Type and size of relation being compared to.
 	int termType, termSize;
 
-	if CheckToken(T_COMPARE){
+	if (CheckToken(T_COMPARE)){
 		//Get next term, otherwise report missing term error.
 		if( Term(termType, termSize) ){
 			if(catchTypeError){
 				//Ensure both terms are of type integer or bool. The two types can be compared against each other.
-				if( ( ((inputType != TYPE_BOOL) && (inputType != TYPE_INTEGER)) || ((termType != TYPE_BOOL) && (termType != TYPE_INTEGER)) ){
+				if( ((inputType != TYPE_BOOL) && (inputType != TYPE_INTEGER)) || ((termType != TYPE_BOOL) && (termType != TYPE_INTEGER)) ){
 					ReportError("Relational operators are only valid for terms of type bool or integers '0' and '1'.");
 					catchTypeError = false;
 				}
 			}
 			if(catchSizeError){
 				//Ensure compatible sizes are used.
-				if( (inputSize != termSize) && ( (inputSize != 0) && (termSize != 0) ){
+				if( (inputSize != termSize) && ( (inputSize != 0) && (termSize != 0) ) ){
 					ReportError("Expected term of size " + to_string(inputSize) + ", but found one of size " + to_string(termSize) + ".");
 					catchSizeError = false;
 				}
@@ -900,7 +921,7 @@ bool Parser::RelationPrime(int &inputType, int &inputSize, bool catchTypeError, 
 			catchSizeError = false;
 		}
 		//Check for another relational operator and term.
-		RelationPrime(relationType, relationSize, catchTypeError, catchSizeError);
+		RelationPrime(inputType, inputSize, catchTypeError, catchSizeError);
 		return true;
 	}
 	else return false;
@@ -910,8 +931,8 @@ bool Parser::RelationPrime(int &inputType, int &inputSize, bool catchTypeError, 
  *		<factor> <term'>
  */
 bool Parser::Term(int &type, int &size){
-	if(Factor(type, size, true, true)){
-		TermPrime(type, size);
+	if(Factor(type, size)){
+		TermPrime(type, size, true, true);
 		return true;
 	}
 	else return false;
@@ -1029,14 +1050,14 @@ bool Parser::Name(int &type, int &size){
 		}
 
 		if( CheckToken(T_LBRACKET) ){
-			if(nameValue.size == 0 && nameValue.type != TYPE_PROCEDURE) ReportWarning(id + " is not an array");
+			if(nameValue.size == 0 && nameValue.type != TYPE_PROCEDURE) ReportError(id + " is not an array");
 			int type2, size2;
 			if( Expression(type2, size2) ){
 				if( (size2 > 1) || ( (type2 != TYPE_INTEGER) && (type2 != TYPE_FLOAT) && (type2 != TYPE_BOOL) ) )
 					ReportError("Array index must be a scalar numeric value.");
 				size = 0;
 				if( CheckToken(T_RBRACKET) ) return true;
-				else ReportWarning("Expected ']' after expression in name.");
+				else ReportError("Expected ']' after expression in name.");
 			}
 			else ReportFatalError("Expected expression between brackets.");
 		}
