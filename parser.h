@@ -31,7 +31,7 @@ class Parser
 		string textLine;
 		int currentLine;
 		void ReportFatalError(string message);
-		void ReportLineError(string message);
+		void ReportLineError(string message, bool skipSemicolon);
 		void ReportError(string message);
 		void ReportWarning(string message);
 
@@ -50,7 +50,7 @@ class Parser
 		bool ProgramBody();
 		
 		//Declaration()
-		bool Declaration();
+		bool Declaration(bool &procDec);
 		
 		bool VariableDeclaration(string &id, scopeValue &varEntry);
 		bool TypeMark(int &type);
@@ -70,7 +70,7 @@ class Parser
 		/* Statement Calls. Statement() checks for one of the following statement types */
 		bool Statement();
 		bool Assignment(string &id);
-		bool Destination(string &id, int &dType, int &dSize);
+		bool Destination(string &id, int &dType, int &dSize, bool &found);
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();

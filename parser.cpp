@@ -33,8 +33,7 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	//Start program parsing
 	Program();
 	
-	if(token == nullptr) cout << "Program parsing completed" << endl;
-	else ReportError("Tokens remaining. Parsing failed.");
+	if(token != nullptr) ReportError("Tokens remaining. Parsing failed.");
 	
 	DisplayWarningQueue();
 
@@ -57,25 +56,28 @@ void Parser::ReportFatalError(string message){
 }
 
 //report error line number and desriptive message. Get tokens until the next line or a ';' is found.
-void Parser::ReportLineError(string message){
+void Parser::ReportLineError(string message, bool skipSemicolon = true){
 	error = true;
 	lineError = true;
 	bool getNext = true;
 	while(getNext){
 		textLine.append(" " + token->ascii);
-		token = token->next;
-		if(token->line != currentLine) getNext = false;
-		else if( CheckToken(T_SEMICOLON) ) getNext = false;
-		/*else{
 			//attempt to resync for structure keywords
-			switch(token->type){
-				case T_BEGIN: case T_END: case T_PROCEDURE: case T_THEN: case T_ELSE: case T_FOR:
-					getNext = false;
-					break;
-				default:
-					break;
+		if(skipSemicolon){
+			if( token->type == T_SEMICOLON){
+				token = token->next;
+				getNext = false;
 			}
-		}*/
+		}
+		switch(token->type){
+			case T_SEMICOLON: case T_BEGIN: case T_END: case T_PROCEDURE: case T_THEN: case T_ELSE: case T_FOR:
+				getNext = false;
+				break;
+			default:
+				break;
+		}
+		if(token->line != currentLine) getNext = false;
+		if(getNext) token = token->next;
 	}
 	warning_queue.push("Line Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine);
 	textLine = "";
@@ -132,7 +134,7 @@ bool Parser::CheckToken(int type){
 	}
 	else{
 		if(token->type == T_UNKNOWN){
-			ReportError("Found unknown token");
+			ReportError("Found unknown token " + token->ascii);
 			token = token->next;
 		}
 		return false;
@@ -213,18 +215,22 @@ bool Parser::ProgramHeader(){
  */
 bool Parser::ProgramBody(){
 	bool resyncEnabled = true;
+	bool procDec = false;
 	//Get Procedure and Variable Declarations
 	while(true){
-		while( Declaration() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' at end of declaration in program body");
+		while( Declaration(procDec) ){
+			if(procDec){
+				if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after procedure declaration in procedure");
+			}
+			else if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after variable declaration in procedure", true);
 		}
 		if(CheckToken(T_BEGIN)){
 			//reset resync for statemnets
-			resyncEnabled = true;
+			resyncEnabled = false;
 			while(true){
 				//get all valid statements
 				while( Statement() ){
-					if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' at end of statement in program body.");
+					if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' at end of statement in program body.", true);
 				}
 				//get program body's end
 				if(CheckToken(T_END)){
@@ -256,7 +262,7 @@ bool Parser::ProgramBody(){
  *		 {global} <procedure_declaration>
  *		|{global} <variable_declaration>
  */
-bool Parser::Declaration(){
+bool Parser::Declaration(bool &procDec){
 	bool global;
 	string id;
 	scopeValue newSymbol;
@@ -274,6 +280,7 @@ bool Parser::Declaration(){
 	if( ProcedureDeclaration(id, newSymbol, global) ){
 		Scopes->exitScope();
 		Scopes->addSymbol(id, newSymbol, global);
+		procDec = true;
 		return true;
 	}
 	else if( VariableDeclaration(id, newSymbol) ){
@@ -395,10 +402,14 @@ bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool globa
  */
 bool Parser::ProcedureBody(){
 	bool resyncEnabled = true;
+	bool procDec = false;
 	//get symbol declarations for next procedure
 	while(true){
-		while( Declaration() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after declaration in procedure");
+		while( Declaration(procDec) ){
+			if(procDec){
+				if( !CheckToken(T_SEMICOLON) ) ReportWarning("expected ';' after procedure declaration in procedure");
+			}
+			else if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after variable declaration in procedure", true);
 		}
 		
 		//get statements for procedure body
@@ -406,7 +417,7 @@ bool Parser::ProcedureBody(){
 			resyncEnabled = true;
 			while(true){
 				while( Statement() ){
-					if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in procedure");
+					if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in procedure",true);
 				}
 				if( CheckToken(T_END) ){
 					if( CheckToken(T_PROCEDURE) ) return true;
@@ -559,21 +570,23 @@ bool Parser::Statement(){
 // <assignment_statement> ::= <destination> := <expression>
 bool Parser::Assignment(string &id){
 	int type, size, dType, dSize;
-	
+	bool found;
 	//Determine destination if this is a valid assignment statement
-	if( !Destination(id, dType, dSize) ) return false;
+	if( !Destination(id, dType, dSize, found) ) return false;
 	
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
-		if(size != dSize){
-			ReportError("Bad assignment, size of expression must match destination's size.");
+		if(found){
+			if(size != dSize && (size != 0) && (dSize != 0)){
+				ReportError("Bad assignment, size of expression must match destination's size.");
+			}
+			if( (type != dType) && ( !isNumber(dType) || !isNumber(type) ) ) ReportError("Bad assignment, type must match destination");
 		}
-		if( (type != dType) && !( ( (type == TYPE_FLOAT) && (dType == TYPE_INTEGER) ) || ( (type == TYPE_INTEGER) && (dType == TYPE_FLOAT) ) ) ) ReportError("Bad assignment, type must match destination");
 		return true;
 	}
 	else{
-		ReportLineError("Bad line. Expected ':=' after destination in assignment statement");
+		ReportLineError("Bad line. Expected ':=' after destination in assignment statement", false);
 		return true;
 	}
 }
@@ -581,10 +594,9 @@ bool Parser::Assignment(string &id){
 /* <destination> ::= <identifier> { [<expression] }
  * Returns the destination's identifier (will be used in procedure call if assignment fails).
  * Returns destination's type and size for comparison with what is being assigned to the destination. */
-bool Parser::Destination(string &id, int &dType, int &dSize){
+bool Parser::Destination(string &id, int &dType, int &dSize, bool &found){
 	//Variable to hold destination symbol's information from the nested scope tables
 	scopeValue destinationValue;
-	bool found;
 	int type, size;
 	
 	if( Identifier() ){
@@ -657,9 +669,9 @@ bool Parser::IfStatement(){
 		while(true){
 			while( Statement() ){
 				flag = true;
-				if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in if statement");
+				if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in conditional statement's 'if' condition",true);
 			}
-			if( !flag ) ReportError("expected at least one statement after 'then' in if statement");
+			if( !flag ) ReportError("expected at least one statement after 'then' in conditional statement");
 			/* Get statements to be evaluated if the statement's expression evaluates to false. 
 		 	 * There must be at least one statement if there is an 'else' case. */
 			if(CheckToken(T_ELSE)){
@@ -668,12 +680,12 @@ bool Parser::IfStatement(){
 				while(true){
 					while( Statement() ){
 						flag = true;
-						if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' after statement in if statement.");
+						if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' after statement in conditional statement's 'else' condition.",true);
 					}
 					/* check for correct closure of statement: 'end if' */
 					if( CheckToken(T_END) ){
-						if( !flag ) ReportError("expected at least one statement after 'else' in if statement.");
-						if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of the if statement");
+						if( !flag ) ReportError("expected at least one statement after 'else' in conditional statement.");
+						if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of conditional statement");
 						return true;
 					}
 					else if(resyncEnabled){
@@ -721,7 +733,7 @@ bool Parser::LoopStatement(){
 	
 	while(true){
 		while( Statement() ){
-			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in for loop");
+			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in for loop",true);
 		}
 		
 		/* check for correct closure of loop: 'end loop' */
