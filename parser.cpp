@@ -776,7 +776,7 @@ bool Parser::ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError
 			if( catchSizeError ){
 				//Ensure compatible sizes are used.
 				if( (inputSize != arithOpSize) && ( (inputSize != 0) && (arithOpSize != 0) ){
-					ReportError("Expected ArithOp of size " + to_string(inputSize) + ", but found one of size " + to_string(exprSize) + "."");
+					ReportError("Expected ArithOp of size " + to_string(inputSize) + ", but found one of size " + to_string(exprSize) + ".");
 					catchSizeError = false;
 				}
 				//Set new inputSize if the next ArithOp's size was non-zero and inputSize was zero.
