@@ -26,7 +26,7 @@ void scopeTracker::newScope(string scopeID){
 
 void scopeTracker::exitScope(){
 	if(curPtr != nullptr){
-		curPtr->printScope();
+		//curPtr->printScope();
 		tmpPtr = curPtr;
 		curPtr = curPtr->prevScope;
 		delete tmpPtr;
@@ -88,6 +88,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	return false;
 }
 
-void scopeTracker::reportError(string message){
-
+void scopeTracker::ChangeScopeName(string name){
+	curPtr->setName(name);
+	return;
 }

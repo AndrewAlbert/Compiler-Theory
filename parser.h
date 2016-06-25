@@ -12,15 +12,26 @@ class Parser
 {
 	private:
 		/* Methods, flags, and queue used for warning / error reporting in the Parser
-		 * ReportError and ReportWarning will both enqueue a message along with line number and ascii value of current token.
-		 * ReportError will stop parsing, but ReportWarning will allow continued parsing. Both prevent code generation.
-		 * When parsing completes, or an error stops program execution, the messages stored in the warning_queue will be printed */
+		 * All report functions will enqueue a message along with line number and found tokens for that line.
+		 * ReportFatalError will stop parsing and end the program. 
+		 *    -This is used for when recovering is not possible.
+		 * ReportLineError will skip to the next line or ';' when an error is found. 
+		 *    -This is used when the type of statement has been determined but something went wrong. 
+		 *    -For example, an unknown symbol or missing array size might throw this error
+		 * ReportError will allow parsing to continue with the next token.
+		 *    -This is used for simple errors like using incompatible value types / sizes or incorrect arguments in a procedure call
+		 * ReportWarning does not cause an error and will not prevent code generation. The program is valid but there is a suspected bug.
+		 *    -This is used for when you use a variable before assigning its value or some other problem that can cause unexpected behavior
+		 * When parsing completes, or a fatal error stops program execution, the messages stored in the warning_queue will be printed */
 		queue<std::string> warning_queue;
 		void DisplayWarningQueue();
 		bool warning;
 		bool error;
+		bool lineError;
 		string textLine;
 		int currentLine;
+		void ReportFatalError(string message);
+		void ReportLineError(string message, bool skipSemicolon);
 		void ReportError(string message);
 		void ReportWarning(string message);
 
@@ -39,7 +50,7 @@ class Parser
 		bool ProgramBody();
 		
 		//Declaration()
-		bool Declaration();
+		bool Declaration(bool &procDec);
 		
 		bool VariableDeclaration(string &id, scopeValue &varEntry);
 		bool TypeMark(int &type);
@@ -59,7 +70,7 @@ class Parser
 		/* Statement Calls. Statement() checks for one of the following statement types */
 		bool Statement();
 		bool Assignment(string &id);
-		bool Destination(string &id, int &dType, int &dSize);
+		bool Destination(string &id, int &dType, int &dSize, bool &found);
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();
@@ -67,10 +78,15 @@ class Parser
 		/* Expression and its associated recursive calls. 
 		 * Each passes a type and size to the function that calls it. */
 		bool Expression(int &type, int &size);
+		bool ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool ArithOp(int &type, int &size);
+		bool ArithOpPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Relation(int &type, int &size);
+		bool RelationPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Term(int &type, int &size);
+		bool TermPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Factor(int &type, int &size);
+		bool FactorPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Name(int &type, int &size);
 		
 		/* Constant value tokens. Simple boolean returns that indicate if the current token is the associated type. 
@@ -82,6 +98,7 @@ class Parser
 		bool String();
 		bool Char();
 		bool Identifier();
+		bool isNumber(int &type_value);
 	public:
 		/* Initializer which attaches the token stream and scopeTracker
 		 * Token stream is created from the Scanner reading the input file.

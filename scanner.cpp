@@ -26,7 +26,6 @@ Scanner::Scanner(string filename){
 				tailPtr->next = nullptr;
 			}
 		}
-		//PrintTokens();
 	}
 	pass_ptr = headPtr;
 }
@@ -109,7 +108,7 @@ bool Scanner::isSingleToken(char character){
 
 bool Scanner::isSpace(char character){
 	int ascii = (int)character;
-	if(ascii == 10 || ascii == 13) line_number++;
+	if(ascii == '\n') line_number++;
 	if (ascii <= 32 && character != EOF){
 		return true;
 	}
@@ -153,6 +152,7 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 					str += nextch;
 					if(nextch == '*') i += 1;
 				}
+				else if (nextch == '\n') line_number++;
 			}
 			token->ascii = str;
 			return T_COMMENT;

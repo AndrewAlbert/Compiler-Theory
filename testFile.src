@@ -7,6 +7,8 @@ program Main is
   integer int3[3];
   bool boolResult[3];
   bool flag;
+  bool bool1[3];
+  bool bool0[3];
   
 //procedure declarations
   global procedure reverseArray(integer arrayIn[5] inout)
