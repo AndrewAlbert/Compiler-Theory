@@ -10,9 +10,8 @@ This milestone is complete
 This milestone is complete
   
 ### 3. Scope and Type Checking
-This milestone is in progress. 
+This milestone is complete.
 
-Currently symbol tables have been constructed and are populated, placed as the current scope, and removed when no longer needed for all variable and procedure declarations. Most calls involving constant values and variables have been tested and are correctly able to be located in the symbol tables and checked to see if they are used as declared. Procedure identifiers can also be located in the symbol tables but still need to have their input arguments checked against the declared parameter types.
 ### 4. Code Generation
 This milestone has yet to be started
 
