@@ -726,167 +726,230 @@ bool Parser::ReturnStatement(){
 }
 
 /*	<expression> ::=
- *		 <expression> & <arithOp>
- *		|<expression> | <arithOp>
- *		|{ not } <arithOp>
+ *		{ not } <arithOp> <expression'>
  */
 bool Parser::Expression(int &type, int &size){
-	//temporary type and size variables to evaluate the Expression's resulting type and size
-	int type1, type2, size1, size2;
-	
 	//flag used to determine if an expression is required following a 'NOT' token
-	bool notSymbol = false;
-	if( CheckToken(T_NOT) ) notSymbol = true;
+	bool notOperation;
+	
+	if( CheckToken(T_NOT) ) notOperation = true;
+	else notOperation = false;
 	
 	//get type and size of first arithOp
-	if( ArithOp(type1, size1) ){
-		type = type1;
-		size = size1;
-		//if a bitwise logical statement occurs in the expression, all ArithOps must be integer values
-		while( CheckToken(T_BITWISE) ){
-			if( CheckToken(T_NOT) ) notSymbol = true;
-			else notSymbol = false;
-			
-			//get type and size of each additional arithOps
-			if( !ArithOp(type2, size2) ) ReportFatalError("expected ArithOp");
-			if( (type1 == TYPE_INTEGER) && (type2 != TYPE_INTEGER) ) ReportError("only integer values are allowed for bitwise expressions");
-			else if((type1 == TYPE_BOOL) && (type2 != TYPE_BOOL)) ReportError("only boolean values are allowed for logical '|' and '&'");
-			else type = TYPE_BOOL;
-			
-			
-			//ensure ArithOp sizes match for arrays, scalar values (size = 0) will always be compatible
-			if( size1 != 0 && size2 != 0 && size1 != size2) ReportError("incompatible array sizes in bitwise expression");
-			else if(size2 != 0) size1 = size2;
-		}
-		//return expression's final type and size
-		//type = type1;
-		//size = size1;
+	if( ArithOp(type, size) ){
+		if( (notOperation) && (type != TYPE_BOOL) && (type != TYPE_INTEGER) )ReportError("'NOT' operator is defined only for type Bool and Integer.");
+		ExpressionPrime(type, size, true, true);
 		return true;
 	}
-	else if (notSymbol) ReportFatalError("expected an ArithOp following 'NOT'");
+	else if (notOperation){
+		ReportFatalError("Expected an integer / boolean ArithOp following 'NOT'");
+		return true;
+	}
+	else return false;
+}
+
+/*  <expression'> ::=
+ *  | 	& <arithOp> <expression'>
+ *  | 	| <arithOp> <expression'>
+ *  |	null
+ */
+bool Parser::ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError){
+	int arithOpType, arithOpSize;
+	if( CheckToken(T_BITWISE) ){
+		CheckToken(T_NOT); //'NOT' is always optional and will be good for both integer-bitwise and boolean-boolean expressions.
+		if( ArithOp(arithOpType, arithOpSize) ){
+			if( catchTypeError ){
+				if( (inputType == TYPE_INTEGER){
+					if(arithOpType != TYPE_INTEGER){
+						ReportError("Only integer ArithOps can be used for bitwise operators '&' and '|'.");
+						catchTypeError = false;
+					}
+				}
+				else if(inputType == TYPE_BOOL){
+					if(arithOpType != TYPE_BOOL){
+						ReportError("Only boolean ArithOps can be used for boolean operators '&' and '|'.");
+						catchTypeError = false;
+					}
+				}
+				else ReportError("Only integer / boolean ArithOps can be used for bitwise / boolean operators '&' and '|'.");
+			}
+			if( catchSizeError ){
+				//Ensure compatible sizes are used.
+				if( (inputSize != arithOpSize) && ( (inputSize != 0) && (arithOpSize != 0) ){
+					ReportError("Expected ArithOp of size " + to_string(inputSize) + ", but found one of size " + to_string(exprSize) + "."");
+					catchSizeError = false;
+				}
+				//Set new inputSize if the next ArithOp's size was non-zero and inputSize was zero.
+				else if(exprSize != 0) inputSize = exprSize;
+			}
+		}
+		else{
+			ReportError("Expected ArithOp after '&' or '|' operator.");
+			catchTypeError = false;
+			catchSizeError = false;
+		}
+		ExpressionPrime(inputType, inputSize, catchTypeError, catchSizeError);
+		return true;
+	}
 	else return false;
 }
 
 /*	<arithOp> ::=
- *		<arithOp> + <relation>
- *		<arithOp> - <relation>
- *		<relation>
+ *		<relation> <arithOp'>
  */
 bool Parser::ArithOp(int &type, int &size){
-	int type1, type2, size1, size2;
-	bool next;
-	
-	if( Relation(type1, size1) ){
-		next = false;
-		if(CheckToken(T_ADD)){	
-			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
-			next = true;
-		}
-		else if(CheckToken(T_SUBTRACT)){
-			if( !(type1 == TYPE_INTEGER || type1 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term1");
-			next = true;
-		}
-		while(next){
-			if( !Relation(type2, size2) ) ReportFatalError("expected Relation (+/-) as part of ArithOp");
-			if( !(type2 == TYPE_INTEGER || type2 == TYPE_FLOAT) ) ReportError("only float and integer values are allowed for arithmetic operations' term2");
-			else{
-				if( (size1 != 0) && (size2 != 0) && (size1 != size2) ) ReportError("incompatible array sizes");
-				else if(size2 != 0) size1 = size2;
-				
-				if(CheckToken(T_ADD));
-				else if(CheckToken(T_SUBTRACT));
-				else next = false;
-			}
-		}
-		type = type1;
-		size = size1;
+	if( Relation(type, size) ){
+		ArithOpPrime(type, size, true, true);
 		return true;
 	}
 	else return false;
 }
 
-/*	<relation> ::=
- *		 <relation> < <term>
- *		|<relation> <= <term>
- *		|<relation> > <term>
- *		|<relation> >= <term>
- *		|<relation> == <term>
- *		|<relation> != <term
- *		|<term>
+/*  <ArithOp'> ::=
+ *		|	+ <relation> <arithOp'>
+ *		|	- <relation> <arithOp'>
+ *		|	null
  */
-bool Parser::Relation(int &type, int &size){
-	int type1, type2, size1, size2;
-	bool next = false;
-	if( Term(type1, size1) ){
-		type = type1;
-		size = size1;
-		if( CheckToken(T_COMPARE) ){
-			if(type1 == TYPE_INTEGER || type1 == TYPE_BOOL){
-				type1 = TYPE_BOOL;
-				next = true;
-			}
-			else ReportError("can only use integers '0' and '1' or booleans for relations");
-		}
-		while(next){
-			//get term 2 for the relation
-			if(!Term(type2, size2)) ReportFatalError("expected term");
-			
-			//check that term 2 is an integer or boolean value
-			if(!(type2 == TYPE_INTEGER || type2 == TYPE_BOOL)) ReportError("can only use integers '0' and '1' or booleans for relations");
-			
-			//if term 1 is an array, check that term 2 is a scalar or an identically sized array
-			if(size1 != 0){
-				if(size2 != 0 && size2 != size1) ReportError("incompatible array size");
-			}
-			//if term 2 is an array, now we are dealing with a problem involving array sizes
-			else if(size2 != 0){
-				size1 = size2;
-			}
-			if(!CheckToken(T_COMPARE)){
-				next = false;
+bool Parser:ArithOpPrime( int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError ){
+	//Size and type of next Relation in the ArithOp sequence
+	int relationType, relationSize;
+	
+	//if '+' or '-' can't be found then return false ('null'). Otherwise continue function.
+	if( CheckToken(T_ADD) );
+	else if( CheckToken(T_SUBTRACT) );
+	else return false;
+	
+	//Get next Relation. Otherwise report Missing Relation error.
+	if( Relation(opType, opSize)){
+		//Only allow number (integer / float) relations in arithmetic operations.
+		if(catchTypeError){
+			if( !isNumber(relationType) || !isNumber(inputType) ){
+				ReportError("Only integer and float values are allowed for arithmetic operations.")
+				catchTypeError = false;
 			}
 		}
-		type = type1;
-		size = size1;
+		//Ensure compatible sizes are used in ArithOp.
+		if(catchSizeError){
+			//Error if sizes are not identical and both are non-zero
+			if( (inputSize != opSize) && ( (inputSize != 0) && (relationSize != 0) ){
+				ReportError("Expected Relation of size " + to_string(inputSize) + ", but found one of size " + to_string(relationSize) + ".");
+				catchSizeError = false;
+			}
+			//Assign inputSize as exprSize if inputSize is non-zero.
+			else if(relationSize != 0) inputSize = relationSize;
+		}
+	}
+	else{
+		ReportError("Expected relation after arithmetic operator.");
+		catchTypeError = false;
+		catchSizeError = false;
+	}
+	//Continue to look for other +/- <relation> in case there is a missing arithOp or doubled up arithmetic operators
+	ArithOpPrime( inputType, inputSize, catchTypeError, catchSizeError );
+	return true;
+}
+
+/*	<relation> ::=
+ *		| <term> <relation'>
+ */
+bool Parser::Relation(int &type, int &size, int &returnType){
+	if( Term(type, size) ){
+		//Get relational operator if one exists. All relational operators return type bool.
+		if( RelationPrime(type, size, true, true) ) type = TYPE_BOOL;
 		return true;
 	}
 	else return false; 
 }
 
-/*	<term> ::=
- *		 <term> * <factor>
- *		|<term> / <factor>
- *		|<factor>
+/* <relation'> ::=
+ *		| <  <term> <relation'> 
+ *		| <= <term> <relation'> 
+ *		| >  <term> <relation'> 
+ *		| >= <term> <relation'> 
+ *		| == <term> <relation'> 
+ *		| != <term> <relation'> 
+ *		| null
  */
-bool Parser::Term(int &type, int &size){
-	int type1, type2, size1, size2;
-	if(Factor(type1, size1)){
-		bool next = false;
-		if( CheckToken(T_MULTIPLY) ) next = true;
-		else if( CheckToken(T_DIVIDE) ) next = true;
+bool Parser::RelationPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError){
+	//Type and size of relation being compared to.
+	int termType, termSize;
 
-		if(next){
-			//only allow arithmetic operations on integers and floats (conversion is allowed between the two)
-			if(!(type1 == TYPE_FLOAT || type1 == TYPE_INTEGER)) ReportError("only integer and float factors allowed preceeding arithmetic operator");
-			while(next){
-				if(!Factor(type2, size2)) ReportFatalError("expected factor");
-				
-				if(!(type2 == TYPE_FLOAT || type2 == TYPE_INTEGER)) ReportError("expected integer or float factor in term after arithmetic operator");
-				else if(size1 == 0 && size2 != 0) size1 = size2;
-				else if(size1 != 0 && size2 != 0 && size1 != size2) ReportError("incompatiable array sizes");
-				
-				if(type1 != TYPE_FLOAT && type2 == TYPE_FLOAT) type1 = type2;
-				
-				if(CheckToken(T_MULTIPLY)) continue;
-				else if(CheckToken(T_DIVIDE)) continue;
-				else next = false;
+	if CheckToken(T_COMPARE){
+		//Get next term, otherwise report missing term error.
+		if( Term(termType, termSize) ){
+			if(catchTypeError){
+				//Ensure both terms are of type integer or bool. The two types can be compared against each other.
+				if( ( ((inputType != TYPE_BOOL) && (inputType != TYPE_INTEGER)) || ((termType != TYPE_BOOL) && (termType != TYPE_INTEGER)) ){
+					ReportError("Relational operators are only valid for terms of type bool or integers '0' and '1'.");
+					catchTypeError = false;
+				}
+			}
+			if(catchSizeError){
+				//Ensure compatible sizes are used.
+				if( (inputSize != termSize) && ( (inputSize != 0) && (termSize != 0) ){
+					ReportError("Expected term of size " + to_string(inputSize) + ", but found one of size " + to_string(termSize) + ".");
+					catchSizeError = false;
+				}
+				//Assign termSize to inputSize if termSize is non-zero.
+				else if(termSize != 0) inputSize = termSize;
 			}
 		}
-		type = type1;
-		size = size1;
+		else{
+			ReportError("Expected term after relational operator.");
+			catchTypeError = false;
+			catchSizeError = false;
+		}
+		//Check for another relational operator and term.
+		RelationPrime(relationType, relationSize, catchTypeError, catchSizeError);
 		return true;
 	}
 	else return false;
+}
+
+/*	<term> ::=
+ *		<factor> <term'>
+ */
+bool Parser::Term(int &type, int &size){
+	if(Factor(type, size, true, true)){
+		TermPrime(type, size);
+		return true;
+	}
+	else return false;
+}
+/* <term'> ::=
+ *		| * <factor> <term'>
+ *		| / <factor> <term'>
+ *		| null
+ */
+bool Parser::TermPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError){
+	//Next factor type and size.
+	int factorType, factorSize;
+	
+	//Check for '*' or '/' token, otherwise return false ('null').
+	if( CheckToken(T_MULTIPLY) );
+	else if( CheckToken(T_DIVIDE) );
+	else return false;
+	
+	//Get next factor, otherwise report missing factor error.
+	if( Factor(factorType, factorSize) ){
+		//Ensure both factors are numbers for arithmetic operators.
+		if( !isNumber(inputType) || !isNumber(factorType) ){
+			ReportError("Only integer and float factors are defined for arithmetic operations in term.");
+			catchTypeError = false;
+		}
+		if( (inputSize != factorSize) && ( (inputSize != 0) && (factorSize != 0) ) ){
+			ReportError("Expected factor of size " + to_string(inputSize) + ", but found one of size " + to_string(factorSize) + ".");
+			catchSizeError = false;
+		}
+		else if(factorSize != 0) inputSize = factorSize;
+	}
+	else{
+		ReportError("Expected factor after arithmetic operator in term.");
+		catchTypeError = false;
+		catchSizeError = false;
+	}
+	TermPrime(inputType, inputSize, catchTypeError, catchSizeError);
+	return true;
 }
 
 /*	<factor> ::=
@@ -917,6 +980,7 @@ bool Parser::Factor(int &type, int &size){
 		else if( Name(tempType, tempSize) ){
 			type = tempType;
 			size = tempSize;
+			if( !isNumber(type) ) ReportError(" negation '-' before variable name is valid only for integers and floats.");
 			return true;
 		}
 		else return false;
@@ -1011,4 +1075,9 @@ bool Parser::Char(){
 // <identifier> ::= [a-zA-Z][a-zA-Z0-9_]*
 bool Parser::Identifier(){
 	return CheckToken(TYPE_IDENTIFIER);
+}
+
+bool isNumber(int &type_value){
+	if( (type_value == TYPE_INTEGER) || (type_value == TYPE_FLOAT)) return true;
+	else return false;
 }
