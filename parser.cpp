@@ -1077,7 +1077,7 @@ bool Parser::Identifier(){
 	return CheckToken(TYPE_IDENTIFIER);
 }
 
-bool isNumber(int &type_value){
+bool Parser::isNumber(int &type_value){
 	if( (type_value == TYPE_INTEGER) || (type_value == TYPE_FLOAT)) return true;
 	else return false;
 }
