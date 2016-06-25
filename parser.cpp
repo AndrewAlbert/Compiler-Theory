@@ -852,7 +852,7 @@ bool Parser:ArithOpPrime( int &inputType, int &inputSize, bool catchTypeError, b
 /*	<relation> ::=
  *		| <term> <relation'>
  */
-bool Parser::Relation(int &type, int &size, int &returnType){
+bool Parser::Relation(int &type, int &size){
 	if( Term(type, size) ){
 		//Get relational operator if one exists. All relational operators return type bool.
 		if( RelationPrime(type, size, true, true) ) type = TYPE_BOOL;
