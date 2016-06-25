@@ -77,10 +77,15 @@ class Parser
 		/* Expression and its associated recursive calls. 
 		 * Each passes a type and size to the function that calls it. */
 		bool Expression(int &type, int &size);
+		bool ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool ArithOp(int &type, int &size);
+		bool ArithOpPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Relation(int &type, int &size);
+		bool RelationPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Term(int &type, int &size);
+		bool TermPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Factor(int &type, int &size);
+		bool FactorPrime(int &inputType, int &inputSize, bool catchTypeError, bool catchSizeError);
 		bool Name(int &type, int &size);
 		
 		/* Constant value tokens. Simple boolean returns that indicate if the current token is the associated type. 
@@ -92,6 +97,7 @@ class Parser
 		bool String();
 		bool Char();
 		bool Identifier();
+		bool isNumber(int &type_value);
 	public:
 		/* Initializer which attaches the token stream and scopeTracker
 		 * Token stream is created from the Scanner reading the input file.
