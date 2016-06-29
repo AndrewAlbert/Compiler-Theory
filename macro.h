@@ -16,7 +16,7 @@ struct token_type{
 		double doubleValue;	
 	} val;
 	string ascii;
-	token_type* next;
+	//token_type* next;
 };
 
 struct scopeValue{

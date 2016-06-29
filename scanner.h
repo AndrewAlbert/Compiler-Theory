@@ -14,11 +14,9 @@ using namespace std;
 class Scanner
 {
 	private:
-		token_type *headPtr;
 		int line_number;
 		FILE * fPtr;
-		token_type *tailPtr;
-		
+		map<string,int> reserved_table;
 		int ScanOneToken(FILE * fPtr, token_type *token);
 		bool isNum(char character);
 		bool isLetter(char character);
@@ -28,12 +26,13 @@ class Scanner
 		bool isSpace(char character);
 
 	public:
-		Scanner(string filename);
-		virtual ~Scanner();
-		int InitScanner();	
-		map<string,int> reserved_table;
-		void PrintTokens();	
-		token_type* pass_ptr;
+		Scanner();
+		~Scanner();		
+		bool InitScanner(string filename);
+		token_type getToken();	
+		void PrintToken();	
+		token_type return_token;
+		token_type *prev_token, *token;
 };
 
 #endif

@@ -26,7 +26,7 @@ void scopeTracker::newScope(string scopeID){
 
 void scopeTracker::exitScope(){
 	if(curPtr != nullptr){
-		//curPtr->printScope();
+		curPtr->printScope();
 		tmpPtr = curPtr;
 		curPtr = curPtr->prevScope;
 		delete tmpPtr;

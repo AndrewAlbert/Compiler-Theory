@@ -41,8 +41,23 @@ int main(int argc, char **argv){
 		return 0;
 	}
 	
-	scopeTracker* Scopes = new scopeTracker;
-	Scanner scanner(filename);
-	Parser parser(scanner.pass_ptr, Scopes);
-	return 0;
+	//Initialize scanner and symbol tables.
+	Scanner *scanner = new Scanner;
+	scopeTracker *scopes = new scopeTracker;
+
+	//Contains token currently being scanned/parsed
+	token_type *token = new token_type;
+	/* Contains previous token. 
+	 * Is not checked, just allows the compiler to grab the token string and values after CheckToken has been called 	
+	 * (since a new token will be scanned if the check is succesful) */
+	token_type *prev_token = new token_type;
+
+	scanner->prev_token = token;
+	scanner->token = prev_token;
+	//Initialize scanner, then begin parsing if there are no errors
+	if(scanner->InitScanner(filename)){
+		*token = scanner->getToken();
+		Parser parser(token, prev_token, scanner, scopes);
+	}
+	else return 0;
 }

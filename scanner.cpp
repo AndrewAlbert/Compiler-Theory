@@ -3,65 +3,83 @@
 
 using namespace std;
 
-Scanner::Scanner(string filename){
-	InitScanner();
-	headPtr = nullptr;
-	tailPtr = nullptr;
+Scanner::Scanner(){
+	
+}
+
+Scanner::~Scanner(){
+	fclose(fPtr);
+}
+
+bool Scanner::InitScanner(string filename){
 	line_number = 1;
 	fPtr = fopen(filename.c_str(),"r");
 	if (fPtr == nullptr){
 		cout << "No file exists!" << endl;
+		return false;
 	}
-	else{
-		headPtr = new token_type;
-		tailPtr = headPtr;
-		int identifier = 0;
-		while(identifier != T_EOF){
-			identifier = ScanOneToken(fPtr, tailPtr);
-			tailPtr->type = identifier;
-			tailPtr->line = line_number;
-			if(!feof(fPtr)){
-				tailPtr->next = new token_type;
-				tailPtr = tailPtr->next;
-				tailPtr->next = nullptr;
-			}
-		}
-	}
-	pass_ptr = headPtr;
+	//else getToken();
+
+	//SINGLE ASCII CHARACTERS
+	reserved_table[";"] = T_SEMICOLON;
+	reserved_table["("] = T_LPAREN;
+	reserved_table[")"] = T_RPAREN;
+	reserved_table[":="] = T_ASSIGNMENT;
+	reserved_table[">="] = T_COMPARE;
+	reserved_table[">"] = T_COMPARE;
+	reserved_table["<="] = T_COMPARE;
+	reserved_table["<"] = T_COMPARE;
+	reserved_table["/"] = T_DIVIDE;
+	reserved_table["*"] = T_MULTIPLY;
+	reserved_table["+"] = T_ADD;
+	reserved_table["-"] = T_SUBTRACT;
+	reserved_table[","] = T_COMMA;
+	reserved_table["["] = T_LBRACKET;
+	reserved_table["]"] = T_RBRACKET;
+	
+	//RESERVED KEYWORDS
+	reserved_table["PROGRAM"] = T_PROGRAM;
+	reserved_table["IS"] = T_IS;
+	reserved_table["BEGIN"] = T_BEGIN;
+	reserved_table["END"] = T_END;
+	reserved_table["GLOBAL"] = T_GLOBAL;
+	reserved_table["PROCEDURE"] = T_PROCEDURE;
+	reserved_table["IN"] = T_IN;
+	reserved_table["OUT"] = T_OUT;
+	reserved_table["INOUT"] = T_INOUT;
+	reserved_table["INTEGER"] = T_INTEGER;
+	reserved_table["FLOAT"] = T_FLOAT;
+	reserved_table["BOOL"] = T_BOOL;
+	reserved_table["STRING"] = T_STRING;
+	reserved_table["CHAR"] = T_CHAR;
+	reserved_table["NOT"] = T_NOT;
+	reserved_table["IF"] = T_IF;
+	reserved_table["THEN"] = T_THEN;
+	reserved_table["ELSE"] = T_ELSE;
+	reserved_table["FOR"] = T_FOR;
+	reserved_table["RETURN"] = T_RETURN;
+	reserved_table["TRUE"] = T_TRUE;
+	reserved_table["FALSE"] = T_FALSE;
+	return true;
 }
 
-Scanner::~Scanner(){
-	while(headPtr != nullptr){
-		tailPtr = headPtr->next;
-		headPtr->next = nullptr;
-		headPtr = tailPtr;		
-	}
-	tailPtr = nullptr;
-	headPtr = nullptr;	
-	fclose(fPtr);
-}
-
-void Scanner::PrintTokens(){
-	token_type *tmpPtr = headPtr; 
-	while(tmpPtr != NULL){
-		cout << tmpPtr->type << " " << tmpPtr->ascii << " " << tmpPtr->line << " ";
-		switch(tmpPtr->type){
-			case TYPE_STRING:
-				cout << tmpPtr->val.stringValue << endl;
-				break;
-			case TYPE_CHAR:
-				cout << tmpPtr->val.stringValue[0] << endl;
-				break;
-			case TYPE_INTEGER:
-				cout << tmpPtr->val.intValue << endl;
-				break;
-			case TYPE_FLOAT:
-				cout << tmpPtr->val.doubleValue << endl;
-				break;
-			default:
-				cout << endl;
-		}
-		tmpPtr = tmpPtr->next;
+void Scanner::PrintToken(){
+	cout << token->type << "\t" << token->ascii << " " << token->line << " ";
+	switch(token->type){
+		case TYPE_STRING:
+			cout << token->val.stringValue << endl;
+			break;
+		case TYPE_CHAR:
+			cout << token->val.stringValue[0] << endl;
+			break;
+		case TYPE_INTEGER:
+			cout << token->val.intValue << endl;
+			break;
+		case TYPE_FLOAT:
+			cout << token->val.doubleValue << endl;
+			break;
+		default:
+			cout << endl;
 	}
 }
 
@@ -114,6 +132,15 @@ bool Scanner::isSpace(char character){
 	}
 	else
 		return false;
+}
+
+token_type Scanner::getToken(){
+	//*prev_token = *token;
+	return_token.type = ScanOneToken(fPtr, &return_token);
+	//token->type = ScanOneToken(fPtr, token);
+	return_token.line = line_number;	
+	//token->line = line_number;
+	return return_token;
 }
 
 int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
@@ -296,49 +323,3 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 	else if (ch == EOF) return T_EOF;
 	else return T_UNKNOWN;
 }
-
-
-int Scanner::InitScanner(){
-	//SINGLE ASCII CHARACTERS
-	reserved_table[";"] = T_SEMICOLON;
-	reserved_table["("] = T_LPAREN;
-	reserved_table[")"] = T_RPAREN;
-	reserved_table[":="] = T_ASSIGNMENT;
-	reserved_table[">="] = T_COMPARE;
-	reserved_table[">"] = T_COMPARE;
-	reserved_table["<="] = T_COMPARE;
-	reserved_table["<"] = T_COMPARE;
-	reserved_table["/"] = T_DIVIDE;
-	reserved_table["*"] = T_MULTIPLY;
-	reserved_table["+"] = T_ADD;
-	reserved_table["-"] = T_SUBTRACT;
-	reserved_table[","] = T_COMMA;
-	reserved_table["["] = T_LBRACKET;
-	reserved_table["]"] = T_RBRACKET;
-	
-	//RESERVED KEYWORDS
-	reserved_table["PROGRAM"] = T_PROGRAM;
-	reserved_table["IS"] = T_IS;
-	reserved_table["BEGIN"] = T_BEGIN;
-	reserved_table["END"] = T_END;
-	reserved_table["GLOBAL"] = T_GLOBAL;
-	reserved_table["PROCEDURE"] = T_PROCEDURE;
-	reserved_table["IN"] = T_IN;
-	reserved_table["OUT"] = T_OUT;
-	reserved_table["INOUT"] = T_INOUT;
-	reserved_table["INTEGER"] = T_INTEGER;
-	reserved_table["FLOAT"] = T_FLOAT;
-	reserved_table["BOOL"] = T_BOOL;
-	reserved_table["STRING"] = T_STRING;
-	reserved_table["CHAR"] = T_CHAR;
-	reserved_table["NOT"] = T_NOT;
-	reserved_table["IF"] = T_IF;
-	reserved_table["THEN"] = T_THEN;
-	reserved_table["ELSE"] = T_ELSE;
-	reserved_table["FOR"] = T_FOR;
-	reserved_table["RETURN"] = T_RETURN;
-	reserved_table["TRUE"] = T_TRUE;
-	reserved_table["FALSE"] = T_FALSE;
-	return 0;
-}
-

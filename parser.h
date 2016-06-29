@@ -3,6 +3,7 @@
 
 #include <string>
 #include "macro.h"
+#include "scanner.h"
 #include "scopeTracker.h"
 #include <cstdio>
 #include <queue>
@@ -25,11 +26,6 @@ class Parser
 		 * When parsing completes, or a fatal error stops program execution, the messages stored in the warning_queue will be printed */
 		queue<std::string> warning_queue;
 		void DisplayWarningQueue();
-		bool warning;
-		bool error;
-		bool lineError;
-		string textLine;
-		int currentLine;
 		void ReportFatalError(string message);
 		void ReportLineError(string message, bool skipSemicolon);
 		void ReportError(string message);
@@ -39,11 +35,6 @@ class Parser
 		 * CheckToken() determines if the current token type is the input type. The stream moves forward one token.
 		 * The two pointers point to the current token in the stream, and the previous token in the stream (useful for getting information) */
 		bool CheckToken(int type);
-		token_type* token;
-		token_type* prev_token;
-		
-		//Pointer to scope symbol tables
-		scopeTracker* Scopes;
 		void declareRunTime();
 		void Program();
 		bool ProgramHeader();
@@ -97,13 +88,20 @@ class Parser
 		bool Float();
 		bool String();
 		bool Char();
-		bool Identifier();
+		bool Identifier(string &id);
 		bool isNumber(int &type_value);
 	public:
 		/* Initializer which attaches the token stream and scopeTracker
 		 * Token stream is created from the Scanner reading the input file.
 		 * The scopeTracker containes the nested symbols tables holding variable and procedure declarations for each scope */
-		Parser(token_type* headPtr, scopeTracker* scopes);
+		bool warning, error, lineError;
+		string textLine;
+		int currentLine;
+		token_type* token;
+		token_type* prev_token;
+		Scanner* scanner;
+		scopeTracker* Scopes;
+		Parser(token_type* tokenPtr, token_type* prevPtr, Scanner* scannerPtr, scopeTracker* scopes);
 		~Parser();
 };
 
