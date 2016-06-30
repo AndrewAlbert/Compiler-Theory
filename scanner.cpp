@@ -11,14 +11,14 @@ Scanner::~Scanner(){
 	fclose(fPtr);
 }
 
-bool Scanner::InitScanner(string filename){
+bool Scanner::InitScanner(string filename, bool debug_input){
+	debug = debug_input;
 	line_number = 1;
 	fPtr = fopen(filename.c_str(),"r");
 	if (fPtr == nullptr){
 		cout << "No file exists!" << endl;
 		return false;
 	}
-	//else getToken();
 
 	//SINGLE ASCII CHARACTERS
 	reserved_table[";"] = T_SEMICOLON;
@@ -135,11 +135,11 @@ bool Scanner::isSpace(char character){
 }
 
 token_type Scanner::getToken(){
-	//*prev_token = *token;
 	return_token.type = ScanOneToken(fPtr, &return_token);
-	//token->type = ScanOneToken(fPtr, token);
 	return_token.line = line_number;	
-	//token->line = line_number;
+	if(debug && return_token.type != T_EOF){
+		cout << return_token.ascii << " ";
+	}
 	return return_token;
 }
 
@@ -147,7 +147,8 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 	char ch, nextch;
 	string str = "";
 	do{
-		ch = getc(fPtr);		
+		ch = getc(fPtr);
+		if(debug && (ch == '\n') ) cout << endl;		
 	} while(isSpace(ch));
 	
 	//handle comments or divisor token
@@ -321,5 +322,9 @@ int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 		}
 	}
 	else if (ch == EOF) return T_EOF;
-	else return T_UNKNOWN;
+	else{
+		str += ch;
+		token->ascii = str;
+		return T_UNKNOWN;
+	}
 }

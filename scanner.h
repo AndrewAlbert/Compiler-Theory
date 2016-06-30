@@ -24,15 +24,15 @@ class Scanner
 		bool isChar(char character);
 		bool isSingleToken(char character);
 		bool isSpace(char character);
-
+		bool debug;
 	public:
 		Scanner();
 		~Scanner();		
-		bool InitScanner(string filename);
+		bool InitScanner(string filename, bool debug_input);
 		token_type getToken();	
 		void PrintToken();	
 		token_type return_token;
-		token_type *prev_token, *token;
+		token_type *token;
 };
 
 #endif

@@ -16,16 +16,30 @@ void commandError(){
 
 //Program call should be: ./compiler [-help] filename
 int main(int argc, char **argv){
+	bool debug;
 	string filename;
 	if( (argc == 2) || (argc == 3) ){
 		if( (string(argv[1]) == "--help") || (string(argv[1]) == "--h") ){
-		cout << "This is a compiler written for the University of Cincinnati class: EECE6083 Compiler Theory" << endl;
-		cout << "The compiler acts as an LL(1) recursive descent compiler and utilizes the C++ programming language and LLVM" << endl;
-		cout << "To use this compiler, compile and then run from the command line using the arguments: [ --help | --h ] filename" << endl;
-		cout << "The compiler will scan and parse your file and generate code if parsing is successful. Otherwise appropriate errors and warnings will be shown" << endl;
-		return 0;
+			cout << "\nThis is a compiler written for the University of Cincinnati class: EECE6083 Compiler Theory" << endl;
+			cout << "\nThe compiler is an LL(1) recursive descent compiler and utilizes the C++ programming language to scan, parse, and type check the program and LLVM to generate the compiler backend." << endl;
+			cout << "\nTo use this compiler, compile and then run from the command line using the arguments: [ --help | --h | --debug | --d ] filename" << endl;
+			cout << "\nThe compiler will scan and parse your file and generate code if parsing is successful. Otherwise appropriate errors and warnings will be shown" << endl;
+			cout << "\n--debug or --d argument will print out each token as it is scanned and print out each scope's symbol table after the scope is exited." << endl;
+			return 0;
+		}
+		else if( (string(argv[1]) == "--debug") || (string(argv[1]) == "--d") ){
+			debug = true;
+			filename = string(argv[2]);
+			//test to see if the file can be read
+			ifstream inputfile(filename);
+			if( inputfile.is_open() ) inputfile.close();
+			else{
+				commandError();
+				return 0;
+			}
 		}
 		else{
+			debug = false;
 			filename = string(argv[1]);
 			//test to see if the file can be read
 			ifstream inputfile(filename);
@@ -40,24 +54,18 @@ int main(int argc, char **argv){
 		commandError();
 		return 0;
 	}
-	
 	//Initialize scanner and symbol tables.
 	Scanner *scanner = new Scanner;
-	scopeTracker *scopes = new scopeTracker;
+	scopeTracker *scopes = new scopeTracker(debug);
 
 	//Contains token currently being scanned/parsed
 	token_type *token = new token_type;
-	/* Contains previous token. 
-	 * Is not checked, just allows the compiler to grab the token string and values after CheckToken has been called 	
-	 * (since a new token will be scanned if the check is succesful) */
-	token_type *prev_token = new token_type;
 
-	scanner->prev_token = token;
-	scanner->token = prev_token;
+	scanner->token = token;
 	//Initialize scanner, then begin parsing if there are no errors
-	if(scanner->InitScanner(filename)){
+	if(scanner->InitScanner(filename, debug)){
 		*token = scanner->getToken();
-		Parser parser(token, prev_token, scanner, scopes);
+		Parser parser(token, scanner, scopes);
 	}
 	else return 0;
 }

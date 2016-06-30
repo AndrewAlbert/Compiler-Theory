@@ -3,7 +3,8 @@
 #include "scopeTracker.h"
 #include <cstdio>
 
-scopeTracker::scopeTracker(){
+scopeTracker::scopeTracker(bool debug_input){
+	debug = debug_input;
 	tmpPtr = nullptr;
 	curPtr = nullptr;
 }
@@ -26,12 +27,13 @@ void scopeTracker::newScope(string scopeID){
 
 void scopeTracker::exitScope(){
 	if(curPtr != nullptr){
-		curPtr->printScope();
+		if(debug) curPtr->printScope();
 		tmpPtr = curPtr;
 		curPtr = curPtr->prevScope;
 		delete tmpPtr;
 	}
-	else cout << "not in a scope!" << endl;
+	else if(debug) cout << "not in a scope!" << endl;
+	return;
 }
 
 bool scopeTracker::addSymbol(string identifier, scopeValue value, bool global){
@@ -88,7 +90,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	return false;
 }
 
-void scopeTracker::ChangeScopeName(string name){
+void scopeTracker::ChangeScopeName(string &name){
 	curPtr->setName(name);
 	return;
 }

@@ -98,10 +98,9 @@ class Parser
 		string textLine;
 		int currentLine;
 		token_type* token;
-		token_type* prev_token;
 		Scanner* scanner;
 		scopeTracker* Scopes;
-		Parser(token_type* tokenPtr, token_type* prevPtr, Scanner* scannerPtr, scopeTracker* scopes);
+		Parser(token_type* tokenPtr, Scanner* scannerPtr, scopeTracker* scopes);
 		~Parser();
 };
 
