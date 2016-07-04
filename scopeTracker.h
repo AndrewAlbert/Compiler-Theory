@@ -3,12 +3,12 @@
 
 #include "scope.h"
 #include "macro.h"
-#include <cstdio>
+#include "scopeValue.h"
 
 /*
  * Interface for managing nested scope tables. Uses the 'scope' class to implement all functionality.
  * Will add and check symbols to the nested scope tables.
-*/
+ */
 class scopeTracker
 {
 	private:
@@ -18,7 +18,7 @@ class scopeTracker
 	public:
 		scopeTracker(bool debug_input);
 		~scopeTracker();
-		void newScope(string scopeID);
+		void newScope();
 		void exitScope();
 		bool addSymbol(string identifier, scopeValue value, bool global);
 		//identical to addSymbol, but for one scope level up. Used to add procedure declaration to its parent scope and own scope

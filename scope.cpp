@@ -1,15 +1,18 @@
 #include "scope.h"
+#include "scopeValue.h"
 #include <string>
 #include <map>
 #include <vector>
 #include <cstdio>
+#include <iostream>
 
 using namespace std;
 
 /* Set initial scope 'name' will only be valid for the program.
- * Procedures will set their name later. */
-scope::scope(string id){
-	name = id;
+ * Procedures will set their name later. 
+ */
+scope::scope(){
+	name = "";
 }
 
 scope::~scope(){

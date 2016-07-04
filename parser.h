@@ -3,10 +3,13 @@
 
 #include <string>
 #include "macro.h"
+#include "token_type.h"
+#include "scopeValue.h"
 #include "scanner.h"
 #include "scopeTracker.h"
-#include <cstdio>
+//#include <cstdio>
 #include <queue>
+
 using namespace std;
 
 class Parser
@@ -93,7 +96,8 @@ class Parser
 	public:
 		/* Initializer which attaches the token stream and scopeTracker
 		 * Token stream is created from the Scanner reading the input file.
-		 * The scopeTracker containes the nested symbols tables holding variable and procedure declarations for each scope */
+		 * The scopeTracker containes the nested symbols tables holding variable and procedure declarations for each scope 
+		 */
 		bool warning, error, lineError;
 		string textLine;
 		int currentLine;

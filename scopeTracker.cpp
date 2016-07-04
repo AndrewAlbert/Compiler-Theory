@@ -1,7 +1,8 @@
 #include "macro.h"
+#include "scopeValue.h"
 #include "scope.h"
 #include "scopeTracker.h"
-#include <cstdio>
+#include <iostream>
 
 scopeTracker::scopeTracker(bool debug_input){
 	debug = debug_input;
@@ -13,14 +14,14 @@ scopeTracker::~scopeTracker(){
 
 }
 
-void scopeTracker::newScope(string scopeID){
+void scopeTracker::newScope(){
 	if(curPtr != nullptr){
 		tmpPtr = curPtr;
-		curPtr = new scope(scopeID);
+		curPtr = new scope();
 		curPtr->prevScope = tmpPtr;
 	}
 	else{
-		curPtr = new scope(scopeID);
+		curPtr = new scope();
 		curPtr->prevScope = tmpPtr;
 	}
 }

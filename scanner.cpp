@@ -1,12 +1,15 @@
 #include "scanner.h"
 #include "macro.h"
+#include <iostream>
 
 using namespace std;
 
+//Constructor
 Scanner::Scanner(){
 	
 }
 
+//Destructor - close input file
 Scanner::~Scanner(){
 	fclose(fPtr);
 }
@@ -16,11 +19,11 @@ bool Scanner::InitScanner(string filename, bool debug_input){
 	line_number = 1;
 	fPtr = fopen(filename.c_str(),"r");
 	if (fPtr == nullptr){
-		cout << "No file exists!" << endl;
+		cout << "\nThe file: " << filename << "\ndoes not exist, or cannot be opened.\n" << endl;
 		return false;
 	}
 
-	//SINGLE ASCII CHARACTERS
+	//Populate the reserved keyword table
 	reserved_table[";"] = T_SEMICOLON;
 	reserved_table["("] = T_LPAREN;
 	reserved_table[")"] = T_RPAREN;
@@ -36,8 +39,6 @@ bool Scanner::InitScanner(string filename, bool debug_input){
 	reserved_table[","] = T_COMMA;
 	reserved_table["["] = T_LBRACKET;
 	reserved_table["]"] = T_RBRACKET;
-	
-	//RESERVED KEYWORDS
 	reserved_table["PROGRAM"] = T_PROGRAM;
 	reserved_table["IS"] = T_IS;
 	reserved_table["BEGIN"] = T_BEGIN;
@@ -63,26 +64,6 @@ bool Scanner::InitScanner(string filename, bool debug_input){
 	return true;
 }
 
-void Scanner::PrintToken(){
-	cout << token->type << "\t" << token->ascii << " " << token->line << " ";
-	switch(token->type){
-		case TYPE_STRING:
-			cout << token->val.stringValue << endl;
-			break;
-		case TYPE_CHAR:
-			cout << token->val.stringValue[0] << endl;
-			break;
-		case TYPE_INTEGER:
-			cout << token->val.intValue << endl;
-			break;
-		case TYPE_FLOAT:
-			cout << token->val.doubleValue << endl;
-			break;
-		default:
-			cout << endl;
-	}
-}
-
 bool Scanner::isNum(char character){
 	int ascii = (int)character;
 	if ((ascii >= 48) && (ascii <= 57))
@@ -100,16 +81,14 @@ bool Scanner::isLetter(char character){
 }
 
 bool Scanner::isString(char character){
-	int ascii = (int)character;
-	if (ascii == 34)
+	if (character == '\"')
 		return true;
 	else
 		return false;
 }
 
 bool Scanner::isChar(char character){
-	int ascii = (int)character;
-	if (ascii == 39)
+	if (character == '\'')
 		return true;
 	else
 		return false;
@@ -117,7 +96,23 @@ bool Scanner::isChar(char character){
 
 bool Scanner::isSingleToken(char character){
 	switch(character){
-		case '.': case ':': case ';': case '(': case ')': case '=': case ',': case '+': case '-': case '*': case '[': case ']': case '>': case '<': case '!': case '&': case '|':
+		case '.': 
+		case ':': 
+		case ';': 
+		case '(': 
+		case ')': 
+		case '=': 
+		case ',': 
+		case '+': 
+		case '-': 
+		case '*': 
+		case '[': 
+		case ']': 
+		case '>': 
+		case '<': 
+		case '!': 
+		case '&': 
+		case '|':
 			return true;
 		default:
 			return false;

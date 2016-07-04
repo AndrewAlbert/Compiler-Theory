@@ -3,9 +3,8 @@
 
 #include <string>
 #include <map>
-#include <vector>
 #include "macro.h"
-#include <cstdio>
+#include "scopeValue.h"
 
 using namespace std;
 
@@ -21,13 +20,14 @@ class scope
 		map<string, scopeValue > globalTable;
 		map<string, scopeValue > localTable;
 		string name;
+		
 	public:
-		scope(string id);
+		scope();
 		~scope();
 		
 		//pointer to parent scope one level up
 		scope* prevScope;
-		
+
 		//print, purely for debugging purposes
 		void printScope();
 		

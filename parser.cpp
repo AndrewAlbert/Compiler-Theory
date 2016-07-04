@@ -1,10 +1,12 @@
 #include "parser.h"
-#include "scope.h"
+//#include "scope.h"
 #include "scopeTracker.h"
 #include "scanner.h"
 #include "macro.h"
+#include "scopeValue.h"
+#include "token_type.h"
 #include <string>
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <iostream>
 #include <queue>
 
@@ -187,7 +189,7 @@ void Parser::declareRunTime(){
 
 //<program> ::= <program_header> <program_body>
 void Parser::Program(){
-	Scopes->newScope("program"); //Create new scope for the program
+	Scopes->newScope(); //Create new scope for the program
 	declareRunTime(); //set up runtime functions as global in the outermost scope
 	if( !ProgramHeader() ) ReportError("Expected program header");
 	if( !ProgramBody() ) ReportError("Expected program body");
@@ -370,7 +372,7 @@ bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration, bool 
 bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool global){
 	if( CheckToken(T_PROCEDURE) ){
 		//Create new scope in nested symbol tables for the procedure
-		Scopes->newScope("procedure");
+		Scopes->newScope();
 		
 		//Set the symbol table entry's type and size to the correct values for a procedure
 		procDeclaration.type = TYPE_PROCEDURE;
