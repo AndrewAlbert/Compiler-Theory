@@ -1,31 +1,6 @@
 #ifndef MACRO_H
 #define MACRO_H
 
-#include<string>
-#include <vector>
-#include<iostream>
-
-using namespace std;
-
-struct token_type{
-	int type;
-	int line;
-	union {
-	    char stringValue[256]; 
-		int intValue;			
-		double doubleValue;	
-	} val;
-	string ascii;
-	token_type* next;
-};
-
-struct scopeValue{
-	int type; //symbol type
-	int size; //size for arrays (0 for non arrays)
-	vector<scopeValue> arguments; //vector of input arguments
-	int paramType; //parameter type IN | OUT | INOUT | not a parameter
-};
-
 //single ASCII character tokens
 #define T_PERIOD 299
 #define T_SEMICOLON 300

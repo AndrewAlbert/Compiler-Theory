@@ -3,37 +3,33 @@
 
 #include <string>
 #include <map>
-#include <fstream>
-#include <iostream>
 #include <cstdio>
-#include <stdio.h>
-#include <cstddef>
 #include "macro.h"
+#include "token_type.h"
 
 using namespace std;
 class Scanner
 {
 	private:
-		token_type *headPtr;
 		int line_number;
+		token_type return_token;
 		FILE * fPtr;
-		token_type *tailPtr;
-		
+		bool debug;	
+		map<string,int> reserved_table;
 		int ScanOneToken(FILE * fPtr, token_type *token);
 		bool isNum(char character);
 		bool isLetter(char character);
 		bool isString(char character);
 		bool isChar(char character);
 		bool isSingleToken(char character);
-		bool isSpace(char character);
-
+		bool isSpace(char character);	
 	public:
-		Scanner(string filename);
-		virtual ~Scanner();
-		int InitScanner();	
-		map<string,int> reserved_table;
-		void PrintTokens();	
-		token_type* pass_ptr;
+		Scanner();
+		~Scanner();		
+		bool InitScanner(string filename, bool debug_input);
+		token_type getToken();	
+		void PrintToken();			
+		token_type *token;
 };
 
 #endif

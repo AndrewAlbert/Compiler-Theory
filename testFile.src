@@ -22,9 +22,9 @@ program Main is
       arrayIn := tmp;
     end procedure;
  
-  procedure XoR(integer array1[3] in, integer array2[3] in, bool result[3] out)
-    bool orTmp[3];
-    bool andTmp[3];
+  procedure XoR(integer array1[3] in, integer array2[3] in, integer result[3] out)
+    integer orTmp[3];
+    integer andTmp[3];
     begin
       orTmp := array1 | array2;
       andTmp := array1 & array2;
@@ -57,7 +57,7 @@ begin
   bool1[1] := true;
   bool1[2] := true;
   //XoR(int2, int3, boolResult);
-  bool0 := 5.5;
+  //bool0 := 5.5;
   flag := boolResult[0];
 
 end program.

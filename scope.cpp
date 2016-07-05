@@ -1,15 +1,18 @@
 #include "scope.h"
+#include "scopeValue.h"
 #include <string>
 #include <map>
 #include <vector>
 #include <cstdio>
+#include <iostream>
 
 using namespace std;
 
 /* Set initial scope 'name' will only be valid for the program.
- * Procedures will set their name later. */
-scope::scope(string id){
-	name = id;
+ * Procedures will set their name later. 
+ */
+scope::scope(){
+	name = "";
 }
 
 scope::~scope(){
@@ -65,17 +68,92 @@ scopeValue scope::getSymbol(string identifier){
 
 //print the local table entries
 void scope::printScope(){
-	cout << "SCOPE: " << name << "\n\nLocal Table:\n";
+	int i;
+	cout << "\n" << endl;
+	for(i = 0; i < 20; i++)
+		cout << "|-";
+	cout << "|" << endl;
+
+	cout << "\nSCOPE: " << name << "\n\nLocal Symbol Table:" << endl;
 	map<string, scopeValue>::iterator it;
 	for(it = localTable.begin(); it != localTable.end(); it++){
 		cout << "id: " << it->first;
-		cout << "\ttype: " << it->second.type << "\tsize: " << it->second.size << endl;
-		cout << "\tparameters:\t";
-		vector<scopeValue> Vec = it->second.arguments;		
-		vector<scopeValue>::size_type vec_it;
-		for(vec_it = 0; vec_it != Vec.size(); vec_it++){
-			cout << Vec[vec_it].type << "\t";
+		cout << "\ttype: ";
+		switch(it->second.type){
+			case TYPE_INTEGER:
+				cout << "Integer";
+				break;
+			case TYPE_FLOAT:
+				cout << "Float";
+				break;
+			case TYPE_CHAR:
+				cout << "Char";
+				break;
+			case TYPE_STRING:
+				cout << "String";
+				break;
+			case TYPE_BOOL:
+				cout << "Bool";
+				break;
+			case TYPE_PROCEDURE:
+				cout << "Procedure";
+				break;
+			default:
+				cout << "Unknown";
+				break;
 		}
-		cout << endl;
+		if(it->second.type == TYPE_PROCEDURE){
+			cout << "\n\tparameters:\n\t";
+			vector<scopeValue> Vec = it->second.arguments;		
+			vector<scopeValue>::size_type vec_it;
+			for(vec_it = 0; vec_it != Vec.size(); vec_it++){
+				if(vec_it != 0) cout << ", ";
+				//cout << Vec[vec_it].type << "\t";
+				switch(Vec[vec_it].type){
+					case TYPE_INTEGER:
+						cout << "Integer";
+						break;
+					case TYPE_FLOAT:
+						cout << "Float";
+						break;
+					case TYPE_CHAR:
+						cout << "Char";
+						break;
+					case TYPE_STRING:
+						cout << "String";
+						break;
+					case TYPE_BOOL:
+						cout << "Bool";
+						break;
+					case TYPE_PROCEDURE:
+						cout << "Procedure";
+						break;
+					default:
+						cout << "Unknown";
+						break;
+				}
+				if(Vec[vec_it].size > 0) cout << "[" << Vec[vec_it].size << "]";
+				switch(Vec[vec_it].paramType){
+					case TYPE_PARAM_IN:
+						cout << " In";
+						break;
+					case TYPE_PARAM_OUT:
+						cout << " Out";
+						break;
+					case TYPE_PARAM_INOUT:
+						cout << " In/Out";
+						break;
+					default:
+						cout << " ?";
+						break;
+				}
+			}
+		cout << "\n" << endl;
+		}
+		else cout << "\n\tsize: " << it->second.size << "\n" << endl;
 	}
+
+	for(i = 0; i < 20; i++)
+		cout << "|-";
+	cout << "|" << endl;
 }

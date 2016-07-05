@@ -1,9 +1,12 @@
 #include "parser.h"
-#include "scope.h"
+//#include "scope.h"
 #include "scopeTracker.h"
+#include "scanner.h"
 #include "macro.h"
+#include "scopeValue.h"
+#include "token_type.h"
 #include <string>
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <iostream>
 #include <queue>
 
@@ -19,11 +22,11 @@ using namespace std;
  * 	zero or more { }*
  * 	or one or more { }+
  */
-Parser::Parser(token_type* headptr, scopeTracker* scopes){
+Parser::Parser(token_type* tokenPtr, Scanner* scannerPtr, scopeTracker* scopes){
 	//Set values needed to begin parsing
-	token = headptr;
-	prev_token = nullptr;
+	token = tokenPtr;
 	Scopes = scopes;
+	scanner = scannerPtr;
 	warning = false;
 	error = false;
 	textLine = "";
@@ -33,18 +36,21 @@ Parser::Parser(token_type* headptr, scopeTracker* scopes){
 	//Start program parsing
 	Program();
 	
-	if(token != nullptr) ReportError("Tokens remaining. Parsing failed.");
+	if(token->type != T_EOF) ReportWarning("Tokens remaining. Parsing stopped at 'end program' and will not include any tokens after that.");
 	
 	DisplayWarningQueue();
-
-	if(error) cout << "Parser completed with some errors." << endl;
-	else if(warning) cout << "Parser completed with some warnings." << endl;
-	else cout << "Parser completed with no errors or warnings." << endl;
+	
+	if(error) cout << "\nParser completed with some errors. \n\tCode cannot be generated.\n" << endl;
+	else if(warning) cout << "\nParser completed with some warnings.\n\tCode can still be generated.\n" << endl;
+	else cout << "\nParser completed with no errors or warnings.\n\tCode can be generated.\n" << endl;
 
 }
 
 Parser::~Parser(){
-
+	//set all pointers to nullptr
+	token = nullptr;
+	scanner = nullptr;
+	Scopes = nullptr;
 }
 
 //Report error and terminate parsing.
@@ -65,7 +71,7 @@ void Parser::ReportLineError(string message, bool skipSemicolon = true){
 			//attempt to resync for structure keywords
 		if(skipSemicolon){
 			if( token->type == T_SEMICOLON){
-				token = token->next;
+				*token = scanner->getToken();
 				getNext = false;
 			}
 		}
@@ -77,7 +83,7 @@ void Parser::ReportLineError(string message, bool skipSemicolon = true){
 				break;
 		}
 		if(token->line != currentLine) getNext = false;
-		if(getNext) token = token->next;
+		if(getNext) *token = scanner->getToken();
 	}
 	warning_queue.push("Line Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine);
 	textLine = "";
@@ -101,6 +107,10 @@ void Parser::ReportWarning(string message){
 
 //display all of the stored warnings after parsing is complete or a fatal error occurs
 void Parser::DisplayWarningQueue(){
+	if(!warning_queue.empty())
+		cout << "\nWarnings / Errors:\n" << endl;
+	else return;
+
 	while(!warning_queue.empty()){
 		cout << warning_queue.front() << "\n" << endl;
 		warning_queue.pop();
@@ -112,8 +122,7 @@ void Parser::DisplayWarningQueue(){
 bool Parser::CheckToken(int type){
 	//skip all comment tokens
 	while (token->type == T_COMMENT){
-		prev_token = token;
-		token = token->next;
+		*token = scanner->getToken();
 	}
 
 	if(token->line != currentLine ){
@@ -128,17 +137,18 @@ bool Parser::CheckToken(int type){
 			return true;
 		}*/
 		textLine.append(" " + token->ascii);
-		prev_token = token;
-		token = token->next;
+		*token = scanner->getToken();
 		return true;
 	}
-	else{
-		if(token->type == T_UNKNOWN){
+	else if(token->type == T_UNKNOWN){
 			ReportError("Found unknown token " + token->ascii);
-			token = token->next;
-		}
+			*token = scanner->getToken();
+		return CheckToken(type);
+	}
+	else if(token->type == T_EOF){
 		return false;
 	}
+	else return false;
 }
 
 void Parser::declareRunTime(){
@@ -179,7 +189,7 @@ void Parser::declareRunTime(){
 
 //<program> ::= <program_header> <program_body>
 void Parser::Program(){
-	Scopes->newScope("program"); //Create new scope for the program
+	Scopes->newScope(); //Create new scope for the program
 	declareRunTime(); //set up runtime functions as global in the outermost scope
 	if( !ProgramHeader() ) ReportError("Expected program header");
 	if( !ProgramBody() ) ReportError("Expected program body");
@@ -192,7 +202,8 @@ void Parser::Program(){
 //<program_header> ::= program <identifier> is
 bool Parser::ProgramHeader(){
 	if(CheckToken(T_PROGRAM)){
-		if( Identifier() ){
+		string id;
+		if( Identifier(id) ){
 			if(CheckToken(T_IS)) return true;
 			else{
 				ReportError("expected 'is' after program identifier");
@@ -301,13 +312,12 @@ bool Parser::VariableDeclaration(string &id, scopeValue &varEntry){
 	if( !TypeMark(varEntry.type) ) return false;
 	else{
 		//get variable identifier
-		if( Identifier() ){
+		if( Identifier(id) ){
 			//get variable identifier
-			id = prev_token->ascii;
 			//get size for array variables
 			if(CheckToken(T_LBRACKET)){
 				if(CheckToken(TYPE_INTEGER)){
-					varEntry.size = prev_token->val.intValue;
+					varEntry.size = token->val.intValue;
 					if( !CheckToken(T_RBRACKET) ) ReportError("expected ']' at end of array variable declaration.");
 					return true;
 				}
@@ -362,16 +372,15 @@ bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration, bool 
 bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool global){
 	if( CheckToken(T_PROCEDURE) ){
 		//Create new scope in nested symbol tables for the procedure
-		Scopes->newScope("procedure");
+		Scopes->newScope();
 		
 		//Set the symbol table entry's type and size to the correct values for a procedure
 		procDeclaration.type = TYPE_PROCEDURE;
 		procDeclaration.size = 0;
 		
 		//get procedure identifier and set value to be added to the symbol table
-		if( Identifier() ){
-			id = prev_token->ascii;
-			//Scopes->setName(id);
+		if( Identifier(id) ){
+			Scopes->ChangeScopeName(id);
 			
 			//get parameter list for the procedure, if it has parameters
 			if( CheckToken(T_LPAREN) ){
@@ -599,8 +608,7 @@ bool Parser::Destination(string &id, int &dType, int &dSize, bool &found){
 	scopeValue destinationValue;
 	int type, size;
 	
-	if( Identifier() ){
-		id = prev_token->ascii;
+	if( Identifier(id) ){
 		found = Scopes->checkSymbol(id, destinationValue);
 		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
@@ -1042,8 +1050,8 @@ bool Parser::Factor(int &type, int &size){
 
 // <name> ::= <identifier> { [ <epression> ] }
 bool Parser::Name(int &type, int &size){
-	if( Identifier() ){
-		string id = prev_token->ascii;
+	string id;
+	if( Identifier(id) ){
 		scopeValue nameValue;
 		bool symbolExists = Scopes->checkSymbol(id, nameValue);
 		if(symbolExists){
@@ -1106,8 +1114,14 @@ bool Parser::Char(){
 }
 
 // <identifier> ::= [a-zA-Z][a-zA-Z0-9_]*
-bool Parser::Identifier(){
-	return CheckToken(TYPE_IDENTIFIER);
+bool Parser::Identifier(string &id){
+	string tmp = token->ascii;
+	bool ret_val = CheckToken(TYPE_IDENTIFIER);
+	if(ret_val){
+		id = tmp;
+		return true;
+	}
+	else return false;
 }
 
 bool Parser::isNumber(int &type_value){
