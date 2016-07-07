@@ -1,12 +1,10 @@
 #include "parser.h"
-//#include "scope.h"
 #include "scopeTracker.h"
 #include "scanner.h"
 #include "macro.h"
 #include "scopeValue.h"
 #include "token_type.h"
 #include <string>
-//#include <stdlib.h>
 #include <iostream>
 #include <queue>
 
@@ -1124,6 +1122,7 @@ bool Parser::Identifier(string &id){
 	else return false;
 }
 
+//Check if token is an integer or float.
 bool Parser::isNumber(int &type_value){
 	if( (type_value == TYPE_INTEGER) || (type_value == TYPE_FLOAT)) return true;
 	else return false;
