@@ -8,9 +8,6 @@
 
 using namespace std;
 
-/* Set initial scope 'name' will only be valid for the program.
- * Procedures will set their name later. 
- */
 scope::scope(){
 	name = "";
 }
@@ -108,7 +105,6 @@ void scope::printScope(){
 			vector<scopeValue>::size_type vec_it;
 			for(vec_it = 0; vec_it != Vec.size(); vec_it++){
 				if(vec_it != 0) cout << ", ";
-				//cout << Vec[vec_it].type << "\t";
 				switch(Vec[vec_it].type){
 					case TYPE_INTEGER:
 						cout << "Integer";

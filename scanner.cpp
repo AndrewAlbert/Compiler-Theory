@@ -14,6 +14,7 @@ Scanner::~Scanner(){
 	fclose(fPtr);
 }
 
+//Initialize scanner and attach the input file. Set debug mode.
 bool Scanner::InitScanner(string filename, bool debug_input){
 	debug = debug_input;
 	line_number = 1;
@@ -129,6 +130,7 @@ bool Scanner::isSpace(char character){
 		return false;
 }
 
+//Get the next token from the input file.
 token_type Scanner::getToken(){
 	return_token.type = ScanOneToken(fPtr, &return_token);
 	return_token.line = line_number;	
@@ -138,6 +140,9 @@ token_type Scanner::getToken(){
 	return return_token;
 }
 
+/*Private function to get next token from a given file pointer and place it into a token pointer.
+getToken() abstracts this function away to simplify scanning.
+*/
 int Scanner::ScanOneToken(FILE *fPtr, token_type *token){
 	char ch, nextch;
 	string str = "";

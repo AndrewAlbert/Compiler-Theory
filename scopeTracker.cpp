@@ -14,6 +14,7 @@ scopeTracker::~scopeTracker(){
 
 }
 
+//Create a new scope with local and global symbol tables.
 void scopeTracker::newScope(){
 	if(curPtr != nullptr){
 		tmpPtr = curPtr;
@@ -22,10 +23,11 @@ void scopeTracker::newScope(){
 	}
 	else{
 		curPtr = new scope();
-		curPtr->prevScope = tmpPtr;
+		curPtr->prevScope = nullptr;
 	}
 }
 
+//Exit scope after the end of a procedure declaration or at end of program.
 void scopeTracker::exitScope(){
 	if(curPtr != nullptr){
 		if(debug) curPtr->printScope();
@@ -37,6 +39,7 @@ void scopeTracker::exitScope(){
 	return;
 }
 
+//Add a symbol to the current scope's local/global table.
 bool scopeTracker::addSymbol(string identifier, scopeValue value, bool global){
 	if(curPtr != nullptr){
 		if(!curPtr->checkSymbol(identifier, false)){
@@ -48,6 +51,7 @@ bool scopeTracker::addSymbol(string identifier, scopeValue value, bool global){
 	else return false;
 }
 
+//Add symbol to the previous scope's table (used by procedure declarations).
 bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool global){
 	scope* prevPtr = curPtr->prevScope;
 	if(prevPtr != nullptr){
@@ -91,6 +95,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	return false;
 }
 
+//Set the scope name to appear when each local scope table is printed in debug mode.
 void scopeTracker::ChangeScopeName(string &name){
 	curPtr->setName(name);
 	return;

@@ -17,12 +17,15 @@ class Scanner
 		bool debug;	
 		map<string,int> reserved_table;
 		int ScanOneToken(FILE * fPtr, token_type *token);
+
+		//Functions to determine  next token
 		bool isNum(char character);
 		bool isLetter(char character);
 		bool isString(char character);
 		bool isChar(char character);
 		bool isSingleToken(char character);
 		bool isSpace(char character);	
+
 	public:
 		Scanner();
 		~Scanner();		

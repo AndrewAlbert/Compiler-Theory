@@ -46,8 +46,8 @@ int main(int argc, char **argv){
 
 	//Contains token currently being scanned/parsed
 	token_type *token = new token_type;
-
 	scanner->token = token;
+
 	//Initialize scanner, then begin parsing if there are no errors
 	if(scanner->InitScanner(filename, debug)){
 		*token = scanner->getToken();

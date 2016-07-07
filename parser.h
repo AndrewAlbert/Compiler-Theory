@@ -93,7 +93,7 @@ class Parser
 		bool Char();
 		bool Identifier(string &id);
 		bool isNumber(int &type_value);
-	public:
+
 		/* Initializer which attaches the token stream and scopeTracker
 		 * Token stream is created from the Scanner reading the input file.
 		 * The scopeTracker containes the nested symbols tables holding variable and procedure declarations for each scope 
@@ -104,6 +104,8 @@ class Parser
 		token_type* token;
 		Scanner* scanner;
 		scopeTracker* Scopes;
+	public:
+		
 		Parser(token_type* tokenPtr, Scanner* scannerPtr, scopeTracker* scopes);
 		~Parser();
 };
