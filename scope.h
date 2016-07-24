@@ -24,6 +24,7 @@ class scope
 	public:
 		scope();
 		~scope();
+		int totalBytes;
 		
 		//pointer to parent scope one level up
 		scope* prevScope;
