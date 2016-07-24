@@ -23,7 +23,7 @@ class scopeTracker
 		bool addSymbol(string identifier, scopeValue value, bool global);
 		//identical to addSymbol, but for one scope level up. Used to add procedure declaration to its parent scope and own scope
 		bool prevAddSymbol(string identifier, scopeValue value, bool global);
-		bool checkSymbol(string identifier, scopeValue &value);
+		bool checkSymbol(string identifier, scopeValue &value, int &previousFrames);
 		void ChangeScopeName(string &name);
 };
 
