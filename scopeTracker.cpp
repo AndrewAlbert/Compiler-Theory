@@ -61,10 +61,13 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 }
 
 //returns true if symbol exists and puts its table entry into &value
-bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
+bool scopeTracker::checkSymbol(string identifier, scopeValue &value, int &previousFrames){
+	// Ensure there is actuall a scope to check
 	if(curPtr == nullptr) return false;
 	else tmpPtr = curPtr;
-	//check local symbols of current scope
+	previousFrames = 0; // Number of previous scopes that had to be checked to find the symbol
+	
+	// Check local symbols of current scope
 	bool found = tmpPtr->checkSymbol(identifier, false);
 	if(found){
 		value = tmpPtr->getSymbol(identifier);
@@ -76,8 +79,10 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	else{
 		return false;
 	}
-	//check global symbols of all upper scopes
+	
+	// Check global symbols of all upper scopes
 	while(tmpPtr != nullptr){
+		previousFrames++;
 		found = tmpPtr->checkSymbol(identifier, true);
 		if(found){
 			value = tmpPtr->getSymbol(identifier);
@@ -91,6 +96,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 	return false;
 }
 
+// Set scope name - useful for debugging
 void scopeTracker::ChangeScopeName(string &name){
 	curPtr->setName(name);
 	return;
