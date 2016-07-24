@@ -13,6 +13,8 @@ using namespace std;
  */
 scope::scope(){
 	name = "";
+	// All scopes are procedures / program and therefore allocate the first two memory locations to pointers for return Address and previous frame
+	totalBytes = 2 * sizeof( void* );
 }
 
 scope::~scope(){
@@ -31,6 +33,28 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	it = localTable.find(identifier);
 	if(it != localTable.end()) return false;
 	else{
+		if(value.type != TYPE_PROCEDURE){
+			switch(value.type){
+				case TYPE_CHAR:
+					value.bytes = sizeof(char);
+					break;
+				case TYPE_INTEGER:
+				case TYPE_BOOL:
+					value.bytes = sizeof(int);
+					break;
+				case TYPE_FLOAT:
+					value.bytes = sizeof(float);
+					break;
+				case TYPE_STRING:
+					value.bytes = sizeof(char*);
+					break;
+				default:
+					value.bytes = 0;
+			}
+			value.FPoffset = totalBytes;
+			totalBytes += value.bytes;
+		}
+		
 		if(global) globalTable[identifier] = value;
 		localTable[identifier] = value;
 	}
@@ -66,7 +90,6 @@ scopeValue scope::getSymbol(string identifier){
 	}
 }
 
-//print the local table entries
 void scope::printScope(){
 	int i;
 	cout << "\n" << endl;
@@ -74,10 +97,13 @@ void scope::printScope(){
 		cout << "|-";
 	cout << "|" << endl;
 
+	// Show the local symbol table entries
 	cout << "\nSCOPE: " << name << "\n\nLocal Symbol Table:" << endl;
 	map<string, scopeValue>::iterator it;
 	for(it = localTable.begin(); it != localTable.end(); it++){
 		cout << "id: " << it->first;
+		
+		// Display the symbol's type identifier
 		cout << "\ttype: ";
 		switch(it->second.type){
 			case TYPE_INTEGER:
@@ -102,6 +128,11 @@ void scope::printScope(){
 				cout << "Unknown";
 				break;
 		}
+		
+		// Display frame pointer offset and byte size for variables in the scope
+		if (it->second.type != TYPE_PROCEDURE) cout << "\nFPoffset: " << it->second.FPoffset << " Size (bytes): " << it->second.bytes;
+		
+		// Display all parameter types for procedure entries ex: Integer[5] In/Out
 		if(it->second.type == TYPE_PROCEDURE){
 			cout << "\n\tparameters:\n\t";
 			vector<scopeValue> Vec = it->second.arguments;		
