@@ -43,6 +43,7 @@ int main(int argc, char **argv){
 	//Initialize scanner and symbol tables.
 	Scanner *scanner = new Scanner;
 	scopeTracker *scopes = new scopeTracker(debug);
+	codeGenerator *gen = new codeGenerator;
 
 	//Contains token currently being scanned/parsed
 	token_type *token = new token_type;
@@ -51,7 +52,8 @@ int main(int argc, char **argv){
 	//Initialize scanner, then begin parsing if there are no errors
 	if(scanner->InitScanner(filename, debug)){
 		*token = scanner->getToken();
-		Parser parser(token, scanner, scopes);
+		gen->attachOutputFile( (filename) + ".c" );
+		Parser parser(token, scanner, scopes, gen);
 	}
 	return 0;
 }
