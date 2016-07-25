@@ -17,20 +17,31 @@ class codeGenerator
 		int MM_SIZE = 32000000;
 		int REG_SIZE = 1024;
 		string regIdentifier = "Reg";
+		string fregIdentifier = "fReg";
 		string memoryIdentifier = "MM";
+		int HeapSize;
+
+		struct data{
+			string value;
+			int type;
+		};
 
 		//Stack for evaluating expressions
 		int reg_in_use;
+		int freg_in_use;
 		int label_count;
 		stack<string> exprStack;
 		
 		//Output file for generated C code
 		FILE* oFile;
-		
+		int tabs;
+		void writeLine( string line );
 	public:
 		//Miscellaneous
 		codeGenerator();
 		~codeGenerator();
+		void tabInc();
+		void tabDec();
 		void comment(string str);
 		bool attachOutputFile(string filename);
 		bool testOutFile();
@@ -47,7 +58,9 @@ class codeGenerator
 
 		// 
 		void createProcedure();
-		
+		void pushParameter();
+		void popParameter();
+
 		// Expression evaluations
 		void pushStack( string value );
 		string popStack();
@@ -65,5 +78,10 @@ class codeGenerator
 		void createProcedureHeader(string procedureName);
 		void ProcedureReturn();
 		void printStack();
+		void condBranch( string labelTrue, string labelFalse = "");
+		void branch( string label );
+		char* AddStringHeap( string str );
+		
 };
+
 #endif

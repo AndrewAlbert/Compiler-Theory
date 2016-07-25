@@ -61,7 +61,7 @@ class Parser
 		// Statements
 		bool Statement();
 		bool Assignment(string &id);
-		bool Destination(string &id, int &dType, int &dSize, bool &found);
+		bool Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found);
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();
@@ -90,6 +90,7 @@ class Parser
 		bool Float();
 		bool String();
 		bool Char();
+		bool Bool();
 		bool Identifier(string &id);
 		bool isNumber(int &type_value);
 		

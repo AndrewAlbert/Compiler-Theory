@@ -11,7 +11,10 @@ using namespace std;
 
 codeGenerator::codeGenerator(){
 	reg_in_use = 0;
+	freg_in_use = 0;
 	label_count = 0;
+	tabs = 0;
+	HeapSize = 0;
 }
 
 codeGenerator::~codeGenerator(){
@@ -22,6 +25,7 @@ codeGenerator::~codeGenerator(){
 bool codeGenerator::attachOutputFile(string filename){
 	oFile = fopen( filename.c_str(), "w" );
 	if( testOutFile() ){
+		cout << "File opened: " << filename << ".c" << endl;
 		header();
 		return true;
 	}
@@ -38,37 +42,52 @@ bool codeGenerator::testOutFile(){
 }
 
 void codeGenerator::comment(string str){
-	fprintf( oFile, "/*\n%s\n*/", str.c_str() );
+	writeLine( "/*\n" + str + "\n*/" );
 	return;
 }
 
 void codeGenerator::header(){
 	//Attach necessary header files for c program
-	fprintf( oFile, "#include <stdio.h>\n" );
-	fprintf( oFile, "#include <stdlib.h>\n" );
-	fprintf( oFile, "#include <stdbool.h>\n" );
-	fprintf( oFile, "#include <string.h>\n\n" );
+	writeLine( "#include <stdio.h>" );
+	writeLine( "#include <stdlib.h>" );
+	writeLine( "#include <stdbool.h>" );
+	writeLine( "#include <string.h>\n" );
 
+	comment( "Begin program execution" );
 	//Call to main for function
-	fprintf( oFile, "int main( void ){\n" );
+	writeLine( "int main( void ){" );
+
+	tabInc();
 
 	//Declare the memory space attributes
-	fprintf( oFile, "int MM_SIZE = %d;\n", MM_SIZE );
-	fprintf( oFile, "int REG_SIZE = %d;\n\n", REG_SIZE );
+	writeLine( "int MM_SIZE = " + to_string(MM_SIZE) + ";" );
+	writeLine( "int REG_SIZE = " + to_string(REG_SIZE) + ";\n" );
 
 	//Declare stack
-	fprintf( oFile, "void* %s = malloc( MM_SIZE );\n", memoryIdentifier.c_str() );
-	fprintf( oFile, "void* FP = %s;\n", memoryIdentifier.c_str() );
-	fprintf( oFile, "void* SP = %s;\n\n", memoryIdentifier.c_str() );
+	writeLine( "void* " + memoryIdentifier + " = malloc( MM_SIZE );" );
+	writeLine( "void* FP = " + memoryIdentifier + ";" );
+	writeLine( "void* SP = " + memoryIdentifier + ";" );
 
 	//Declare int / float registers
-	fprintf( oFile, "int* %s = (int*) calloc( REG_SIZE, sizeof(int) );\n", regIdentifier.c_str() );
-	fprintf( oFile, "float* f%s = (float*) calloc( REG_SIZE, sizeof(float) );\n\n", regIdentifier.c_str() );
+	writeLine( "int* " + regIdentifier + " = (int*) calloc( REG_SIZE, sizeof(int) );" );
+	writeLine( "float* " + fregIdentifier + " = (float*) calloc( REG_SIZE, sizeof(float) );\n" );
 	
 }
 
 void codeGenerator::footer(){
-	fprintf( oFile, "return 0;\n}\n");
+	writeLine( "return 0;");
+	tabDec();
+	writeLine("}");
+}
+
+void codeGenerator::tabInc(){
+	tabs++;
+	return;
+}
+
+void codeGenerator::tabDec(){
+	if( tabs > 0 )tabs--;
+	return;
 }
 
 string codeGenerator::typeString( int type ){
@@ -89,55 +108,73 @@ string codeGenerator::typeString( int type ){
 }
 
 void codeGenerator::printStack(){
+	
+	return;
+}
 
+void codeGenerator::writeLine( string line ){
+	for( int i = tabs; i > 0; i-- ){
+		fprintf( oFile, "   " );
+	}
+	fprintf( oFile, "%s\n", line.c_str() );
 }
 
 void codeGenerator::pushStack( string value ){
 	reg_in_use++;
 	exprStack.push( value );
-	cout << "Push Stack: " << exprStack.top() << endl;
+	//cout << "Push Stack: " << exprStack.top() << endl;
 }
 
 string codeGenerator::popStack(){
+	reg_in_use--;
 	string ret = exprStack.top();
-	cout << "Pop Stack: " << ret << endl;
+	//cout << "Pop Stack: " << ret << endl;
 	exprStack.pop();
 	return ret;
 }
 
+void codeGenerator::condBranch( string labelTrue, string labelFalse ){
+	string cond = popStack();
+	// goto true condition
+	writeLine("if( " + cond + " ) goto *( &&" + labelTrue + " );");
+	// goto else condition
+	if( labelFalse.compare("") != 0 ) writeLine( "goto *( &&" + labelFalse + " );");
+	cout << "Cond Branch:\n\tif(" << cond << ")goto " << labelTrue << " else goto " << labelFalse << endl;
+	return;
+}
+
+void codeGenerator::branch( string label ){
+	cout << "branch:\n\tgoto " << label << endl;
+	writeLine( "goto *( &&"+ label + " );");
+	return;
+}
+
 string codeGenerator::evalExpr( string op, bool ExprRoot ){
-	cout << "Evaluate Expression " << endl;
 	string lhs, rhs, result;
 	rhs = popStack();
 	lhs = popStack();
-	reg_in_use -= 2;
-	cout << "Get result register" << endl;
 	result = newRegister();
 	
 	//If there is more to the expression, keep the register on the stack. Otherwise allow it to be overwritten
 	if ( !ExprRoot ){
 		pushStack( result );
-		reg_in_use++;
 	}
-	fprintf( oFile, "%s = %s %s %s;\n", result.c_str(), lhs.c_str(), op.c_str(), rhs.c_str());
-	cout << "return result" << endl;
+	writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
 	// Return string with the result. Only needed really if ExprRoot = true or for debugging purposes.
+	cout << "Evaluate Expression " << op << "\n\t" << result << " = " << lhs << " " << op << " " << rhs << endl;
 	return result;
 }
 
 string codeGenerator::newRegister( ){
-	cout << "New Register" << endl;
 	return getRegister( reg_in_use );
 }
 
 string codeGenerator::getRegister( int id ){
-	cout << "Get Register" << endl;
 	return ( regIdentifier + "[" + to_string( id ) + "]");
 }
 
 //
 string codeGenerator::VALtoREG( string val, int type, int reg, bool push ){
-	cout << "Value " << val << " to Register" << endl;
 	string destination, typeMark;
 	if( reg < 0 ) destination = newRegister();
 	else destination = getRegister( reg );
@@ -148,12 +185,23 @@ string codeGenerator::VALtoREG( string val, int type, int reg, bool push ){
 		val = "\"" + val + "\"";
 
 	if ( push ) pushStack( destination);
-	fprintf( oFile, "%s = %s;\n", destination.c_str(), val.c_str() );
+	writeLine( destination + " = " + val + ";");
+	cout << "Val --> Reg\n\t" << destination << " = " << val << endl;
 	return destination;
 }
 
+char* codeGenerator::AddStringHeap( string str ){
+	HeapSize += ( str.size() + 1);
+	int i;
+	char ch;
+	for( i = 0; i < str.size(); i++ ){
+		ch = str[i];
+		
+	}
+	return nullptr;
+}
+
 string codeGenerator::ArrayMMtoREG( int type, int MMoffset, int index, int size, int reg , bool push){
-	cout << "MM to Register" << endl;
 	// Get size of each array entry in memory
 	int entrySize;
 	switch(type){
@@ -164,7 +212,7 @@ string codeGenerator::ArrayMMtoREG( int type, int MMoffset, int index, int size,
 		case TYPE_INTEGER:
 			entrySize = sizeof(int);
 			break;
-		case TYPE_CHAR:
+		case TYPE_STRING:
 			entrySize = sizeof(char*);
 			break;
 		case TYPE_FLOAT:
@@ -177,14 +225,15 @@ string codeGenerator::ArrayMMtoREG( int type, int MMoffset, int index, int size,
 	string source, destination;
 	if(index < 0){
 		// Move each array element onto the stack
-		cout << "Full Array" << endl;
+		cout << "Full Array to Reg" << endl;
 		int i;
 		for(i = 0; i < size; i++){
 			if( reg < 0 ) destination = newRegister();
 			else destination = getRegister( reg + i );
 			source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset + entrySize * i ) +" )";
-			fprintf( oFile, "%s = %s;\n", destination.c_str(), source.c_str() );
+			writeLine( destination + " = " + source + ";" );
 			if ( push ) pushStack( destination);
+			cout << "\t" << destination << " = " << source << endl; 
 			return destination;
 		}
 	}
@@ -193,86 +242,105 @@ string codeGenerator::ArrayMMtoREG( int type, int MMoffset, int index, int size,
 		if( reg < 0 ) destination = newRegister();
 		else destination = getRegister( reg );
 		source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset + entrySize * index ) +" )";
-		fprintf( oFile, "%s = %s;\n", destination.c_str(), source.c_str() );
+		writeLine( destination + " = " + source + ";");
 		if ( push ) pushStack( destination);
+		cout << "\t" << destination << " = " << source << endl; 
 		return destination;
 	}
 }
 
 // Returns the string representing the destination register for stack operations.
 string codeGenerator::MMtoREG( int type, int MMoffset, int reg , bool push){
-	cout << "MM to Register" << endl;
 	string source, destination;
 	if( reg < 0 ) destination = newRegister();
 	else destination = getRegister( reg );
 	source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset) +" )";
-	fprintf( oFile, "%s = %s;\n", destination.c_str(), source.c_str() );
+	writeLine( destination + " = " + source + ";");
 	if ( push ) pushStack( destination);
+	cout << "MM --> Reg\n\t" << destination << " = " << source << endl;
 	return destination;
 }
 
 // Returns the string representing the source register for stack operations.
 string codeGenerator::REGtoMM( int type, int MMoffset, int reg, bool push ){
-	cout << "Register to MM" << endl;
 	string source, destination;
-	source = getRegister( reg );
+	if(reg < 0 ) source = popStack();
+	else source = getRegister( reg );
 	destination = "*(" + typeString(type) + "*)( SP + " + to_string(MMoffset) + " )";
-	fprintf( oFile, "%s = %s;\n", destination.c_str(), source.c_str() );
-	if ( push ) pushStack( destination);
+	writeLine( destination + " = " + source + ";");
+	//if ( push ) pushStack( destination);
+	cout << "Reg --> MM\n\t" << destination << " = " << source << endl;
 	return source;
 }
 
 // Get a guaranteed unique label string
 string codeGenerator::newLabel( string prefix ){
-	cout << "New Label" << endl;
 	return ("Label_" + to_string( label_count++ ) + "_" + prefix);
 }
 
 // Put label in file
 void codeGenerator::placeLabel( string label ){
-	cout << "Place Label" << endl;
-	fprintf( oFile, "%s:\n", label.c_str() );
+	cout << "Place Label: " << label << endl;
+	writeLine( "\n" + label + ":" );
 	return;
 }
 
 // Set address of label to return to after procedure call
 void codeGenerator::setReturnAddress( int MMoffset, string label ){
+	string source, destination;
+	source = "*(void*)( SP + " + to_string(MMoffset) + " )";
+	destination = "(void*)&&" + label;
 	cout << "Set Return Address" << endl;
-	fprintf( oFile, "*(void*)( SP + %d ) = (void*)&&%s;\n", MMoffset, label.c_str() );
+	writeLine( source + " = " + destination );
 	return;
 }
 
 //Return address of instruction is always after the void* to previous frame which is placed at the frame pointer
 void codeGenerator::ProcedureReturn(){
 	cout << "Procedure Return" << endl;
-	//fprintf( oFile, MMtoReg( TYPE_INTEGER, );
-	fprintf( oFile, "FP = *(void*)(FP);\n");
-	fprintf( oFile, "goto *(void*)( FP + %ld );\n", sizeof(void*));
+	//fprintf( oFile, MMtoREG( TYPE_INTEGER, );
+	writeLine( "FP = *(void*)(FP);" );
+	writeLine( "goto *(void*)( FP + " + to_string(sizeof(void*)) + ");" );
+	return;
 }
 
 //bool checkSymbol(string identifier, scopeValue &value, int &previousFrames);
 
 void codeGenerator::createProcedureHeader(string procedureName){
-	cout << "Create Procedure Header" << endl;
 	// Check the symbol table and get the procedure name and
 
 	// Get labels for all parts of the program
 	string callLabel = newLabel("Procedure_" + procedureName);
 	
-	fprintf( oFile, "// Procedure %s\n", procedureName.c_str() );
+	tabDec();
 	placeLabel(callLabel);	
+	tabInc();	
+
+	return;
 }
 
 void codeGenerator::createProcedureFooter(string procedureName){
-	cout << "Create Procedure Footer" << endl;
 	string endLabel = newLabel("End_Procedure");
+
+	tabDec();
 	placeLabel(endLabel);
+	tabInc();
+
 	ProcedureReturn();
+	return;
 }
 		
-		
-void codeGenerator::callProcedure( string retLabel, scopeValue procValue ){
-	cout << "Call Procedure" << endl;
-	fprintf( oFile, "// Place procedure on stack\n");
+void codeGenerator::pushParameter( ){
+	
+	return;
 }
 
+void codeGenerator::popParameter( ){
+
+	return;
+}
+
+void codeGenerator::callProcedure( string retLabel, scopeValue procValue ){
+	cout << "Call Procedure" << endl;
+	writeLine( "goto *(void*)( FP + " + to_string(sizeof(void*)) + ");" );
+}

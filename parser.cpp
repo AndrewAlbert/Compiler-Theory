@@ -211,6 +211,8 @@ void Parser::Program(){
 	if( CheckToken(T_EOF) ) Scopes->exitScope(); //exit program scope once program ends
 		
 	else ReportError("Found some tokens remaining in file when end of program was expected");
+	generator->footer();
+	return;
 }
 
 //<program_header> ::= program <identifier> is
@@ -399,7 +401,11 @@ bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool globa
 		//get procedure identifier and set value to be added to the symbol table
 		if( Identifier(id) ){
 			Scopes->ChangeScopeName(id);
-			
+
+			// GEN: add procedure entry
+			string labelProc = generator->newLabel( "Procedure_" + id );
+			generator->placeLabel( labelProc );
+		
 			//get parameter list for the procedure, if it has parameters
 			if( CheckToken(T_LPAREN) ){
 				ParameterList(procDeclaration);
@@ -447,6 +453,12 @@ bool Parser::ProcedureBody(){
 					if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in procedure",true);
 				}
 				if( CheckToken(T_END) ){
+
+					// GEN: add end label
+					string labelEnd;
+					labelEnd = generator->newLabel("Procedure_End");
+					generator->placeLabel( labelEnd );
+
 					if( CheckToken(T_PROCEDURE) ) return true;
 					else{
 						ReportError("expected 'end procedure' at end of procedure declaration");
@@ -535,9 +547,16 @@ bool Parser::ArgumentList(vector<scopeValue> &list){
 
 	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vector
 	if( Expression(argEntry.type, argEntry.size) ){
+		// GEN: add arguments from register to correct frame
+		// generator->pushArg();
+
 		list.push_back(argEntry);
 		while( CheckToken(T_COMMA) ){
-			if( Expression(argEntry.type, argEntry.size) ) list.push_back(argEntry);
+			if( Expression(argEntry.type, argEntry.size) ){
+				list.push_back(argEntry);
+				// GEN: add arguments from register to correct frame
+				// generator->pushArg();
+			}
 			else ReportError("expected another argument after ',' in argument list of procedure call");
 		}
 	}
@@ -600,12 +619,15 @@ bool Parser::Statement(){
 bool Parser::Assignment(string &id){
 	int type, size, dType, dSize;
 	bool found;
+	scopeValue destinationValue;
 	//Determine destination if this is a valid assignment statement
-	if( !Destination(id, dType, dSize, found) ) return false;
+	if( !Destination(id, dType, dSize, destinationValue, found) ) return false;
 	
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
+		// GEN: Move expression result to MM
+		generator->REGtoMM( dType, destinationValue.FPoffset );
 		if(found){
 			if(size != dSize && (size != 0) && (dSize != 0)){
 				ReportError("Bad assignment, size of expression must match destination's size.");
@@ -624,9 +646,8 @@ bool Parser::Assignment(string &id){
  * Returns the destination's identifier (will be used in procedure call if assignment fails).
  * Returns destination's type and size for comparison with what is being assigned to the destination. 
  */
-bool Parser::Destination(string &id, int &dType, int &dSize, bool &found){
+bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found){
 	//Variable to hold destination symbol's information from the nested scope tables
-	scopeValue destinationValue;
 	int type, size, previousFrames;
 	
 	if( Identifier(id) ){
@@ -679,6 +700,7 @@ bool Parser::IfStatement(){
 	 * type and size variables are unused but needed to perfrom the call to Expression(type, size) */
 	bool flag;
 	int type, size;
+	string labelTrue, labelFalse, labelEnd;
 	bool resyncEnabled = true;
 	
 	//determine if this is the start of an if statement
@@ -690,10 +712,18 @@ bool Parser::IfStatement(){
 	else if (type != TYPE_BOOL) ReportLineError("Conditional expression in if statement must evaluate to type bool.");
 	else if( !CheckToken(T_RPAREN) ) ReportLineError("expected ')' after condition in if statement");
 	
+	// GEN: Check result of expression
+	labelTrue = generator->newLabel( "IfTrue" );
+	labelFalse = generator->newLabel( "IfFalse" );
+	labelEnd = generator->newLabel( "IfEnd" );
+	generator->condBranch(labelTrue, labelFalse);;
 	
 	/* Get statements to be evaluated if the statement's expression evaluates to true. 
 	 * There must be at least one statement following 'then'. */
 	if( CheckToken(T_THEN) ){
+		generator->tabDec();
+		generator->placeLabel( labelTrue );
+		generator->tabInc();
 		flag = false;
 		while(true){
 			while( Statement() ){
@@ -701,8 +731,15 @@ bool Parser::IfStatement(){
 				if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in conditional statement's 'if' condition",true);
 			}
 			if( !flag ) ReportError("expected at least one statement after 'then' in conditional statement");
+			
+			// GEN: goto end if
+			generator->branch(labelEnd);
+
 			/* Get statements to be evaluated if the statement's expression evaluates to false. 
 		 	 * There must be at least one statement if there is an 'else' case. */
+			generator->tabDec();
+			generator->placeLabel(labelFalse);
+			generator->tabInc();
 			if(CheckToken(T_ELSE)){
 				flag = false;
 				resyncEnabled = true;
@@ -712,7 +749,14 @@ bool Parser::IfStatement(){
 						if( !CheckToken(T_SEMICOLON) ) ReportLineError("Expected ';' after statement in conditional statement's 'else' condition.",true);
 					}
 					/* check for correct closure of statement: 'end if' */
+					
+					// GEN: goto end if
+					generator->branch(labelEnd);
+
 					if( CheckToken(T_END) ){
+						generator->tabDec();
+						generator->placeLabel(labelEnd);
+						generator->tabInc();
 						if( !flag ) ReportError("expected at least one statement after 'else' in conditional statement.");
 						if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of conditional statement");
 						return true;
@@ -751,22 +795,43 @@ bool Parser::LoopStatement(){
 	
 	//Determine if a loop statement is going to be declared
 	if( !CheckToken(T_FOR) ) return false;
+	string labelCond, labelTrue, labelEnd;
+	labelCond = generator->newLabel("Loop_Check");
+	labelTrue = generator->newLabel("Loop_True");
+	labelEnd = generator->newLabel("Loop_End");
 	
 	/* get assignment statement and expression for loop: '( <assignment_statement> ; <expression> )'
 	 * Throws errors if '(' or ')' is missing. Throws warnings for other missing components */
 	if( !CheckToken(T_LPAREN) ) ReportFatalError("expected '(' before assignment and expression in for loop statement");
+
 	if( !Assignment(id) ) ReportError("expected an assignment at start of for loop statement");
+
 	if( !CheckToken(T_SEMICOLON) ) ReportError("expected ';' separating assignment statement and expression in for loop statement");
+	else{
+		generator->tabDec();
+		generator->placeLabel(labelCond);
+		generator->tabInc();
+	}
+
 	if( !Expression(type, size) ) ReportError("expected a valid expression following assignment in for loop statement");
+	else generator->condBranch( labelTrue, labelEnd );
+
 	if( !CheckToken(T_RPAREN) ) ReportError("expected ')' after assignment and expression in for loop statement");
-	
+	generator->tabDec();
+	generator->placeLabel(labelTrue);
+	generator->tabInc();
 	while(true){
 		while( Statement() ){
 			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in for loop",true);
 		}
 		
 		/* check for correct closure of loop: 'end loop' */
+		generator->branch(labelCond);
+
 		if( CheckToken(T_END) ){
+			generator->tabDec();
+			generator->placeLabel(labelEnd);
+			generator->tabInc();
 			if( !CheckToken(T_FOR) ) ReportError("missing 'for' in the 'end for' closure of the for loop statement");
 			return true;
 		}
@@ -783,7 +848,10 @@ bool Parser::LoopStatement(){
 
 // <return_statement> ::= return
 bool Parser::ReturnStatement(){
-	if(CheckToken(T_RETURN)) return true;
+	if(CheckToken(T_RETURN)){
+		generator->ProcedureReturn();
+		return true;
+	}
 	else return false;
 }
 
@@ -1115,12 +1183,7 @@ bool Parser::Factor(int &type, int &size){
 		size = 0;
 		return true;
 	}
-	else if( CheckToken(T_FALSE) ){
-		type = TYPE_BOOL;
-		size = 0;
-		return true;
-	}
-	else if( CheckToken(T_TRUE) ){
+	else if( Bool() ){
 		type = TYPE_BOOL;
 		size = 0;
 		return true;
@@ -1168,8 +1231,8 @@ bool Parser::Name(int &type, int &size){
 		}
 		else{
 			// GEN: MM to REG for scalars / full arrays
-			if(size > 0) generator->ArrayMMtoReg( type, nameValue.FPoffset, -1, size );
-			else generator->MMtoReg( type, nameValue.FPoffset );
+			if(size > 0) generator->ArrayMMtoREG( type, nameValue.FPoffset, -1, size );
+			else generator->MMtoREG( type, nameValue.FPoffset );
 			return true;
 		}
 	}
@@ -1221,6 +1284,19 @@ bool Parser::Char(){
 	string val = token->ascii;
 	if(CheckToken(TYPE_CHAR)){
 		generator->VALtoREG( val, TYPE_CHAR);
+		return true;
+	}
+	else return false;
+}
+
+bool Parser::Bool(){
+	string val = token->ascii;
+	if(CheckToken(T_TRUE)){
+		generator->VALtoREG( "true", TYPE_BOOL);
+		return true;
+	}
+	else if(CheckToken(T_FALSE)){
+		generator->VALtoREG( "false", TYPE_BOOL);
 		return true;
 	}
 	else return false;
