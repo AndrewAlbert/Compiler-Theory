@@ -770,6 +770,9 @@ bool Parser::IfStatement(){
 			}
 			/* check for correct closure of statement: 'end if' */
 			else if( CheckToken(T_END) ){
+				generator->tabDec();
+				generator->placeLabel(labelEnd);
+				generator->tabInc();
 				if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of the if statement");
 				return true;
 			}
