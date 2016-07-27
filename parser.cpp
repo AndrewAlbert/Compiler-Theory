@@ -243,6 +243,7 @@ bool Parser::ProgramHeader(){
 bool Parser::ProgramBody(){
 	bool resyncEnabled = true;
 	bool procDec = false;
+	string labelBegin = generator->newLabel("Begin_Program");
 	//Get Procedure and Variable Declarations
 	while(true){
 		while( Declaration(procDec) ){
@@ -252,6 +253,9 @@ bool Parser::ProgramBody(){
 			else if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after variable declaration in procedure", true);
 		}
 		if(CheckToken(T_BEGIN)){
+			// GEN: Place label to procedure entry
+			generator->placeLabel(labelBegin);
+
 			//reset resync for statements
 			resyncEnabled = false;
 			while(true){
@@ -548,14 +552,14 @@ bool Parser::ArgumentList(vector<scopeValue> &list){
 	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vector
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
-		// generator->pushArg();
+		//generator->REGtoMM( argEntry.type, MMoffset, argEntry.size);
 
 		list.push_back(argEntry);
 		while( CheckToken(T_COMMA) ){
 			if( Expression(argEntry.type, argEntry.size) ){
 				list.push_back(argEntry);
 				// GEN: add arguments from register to correct frame
-				// generator->pushArg();
+				//generator->REGtoMM( argEntry.type, MMoffset, argEntry.size);
 			}
 			else ReportError("expected another argument after ',' in argument list of procedure call");
 		}
@@ -620,20 +624,22 @@ bool Parser::Assignment(string &id){
 	int type, size, dType, dSize;
 	bool found;
 	scopeValue destinationValue;
+	int previousFrames = 0;
+	bool indirect;
 	//Determine destination if this is a valid assignment statement
-	if( !Destination(id, dType, dSize, destinationValue, found) ) return false;
+	if( !Destination(id, dType, dSize, destinationValue, found, previousFrames, indirect) ) return false;
 	
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
-		// GEN: Move expression result to MM
-		generator->REGtoMM( dType, destinationValue.FPoffset );
+
 		if(found){
-			if(size != dSize && (size != 0) && (dSize != 0)){
-				ReportError("Bad assignment, size of expression must match destination's size.");
-			}
-			if( (type != dType) && ( !isNumber(dType) || !isNumber(type) ) ) ReportError("Bad assignment, type must match destination");
+			if(size != dSize && (size != 0) && (dSize != 0)) ReportError("Bad assignment, size of expression must match destination's size.");
+			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
+		// GEN: Move expression result to MM
+		if( indirect) generator->REGtoMMIndirect( dType, destinationValue.FPoffset, "", previousFrames);
+		else generator->REGtoMM( dType, destinationValue.FPoffset, dSize, previousFrames );
 		return true;
 	}
 	else{
@@ -646,12 +652,14 @@ bool Parser::Assignment(string &id){
  * Returns the destination's identifier (will be used in procedure call if assignment fails).
  * Returns destination's type and size for comparison with what is being assigned to the destination. 
  */
-bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found){
+bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found, int &prevFrames, bool &indirect){
 	//Variable to hold destination symbol's information from the nested scope tables
 	int type, size, previousFrames;
-	
+	indirect = false;
+
 	if( Identifier(id) ){
 		found = Scopes->checkSymbol(id, destinationValue, previousFrames);
+		prevFrames = previousFrames;
 		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
 		else if(!found){
@@ -666,6 +674,7 @@ bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destina
 		
 		if(CheckToken(T_LBRACKET)){
 			if( Expression(type, size) ){
+				indirect = true;
 				//ensure array index is a single numeric value
 				if( size != 0 || ( (type != TYPE_FLOAT) && ( type != TYPE_INTEGER) && ( type != TYPE_BOOL) ) ) {
 					ReportError("Destination array's index must be a scalar numeric value");
@@ -803,6 +812,10 @@ bool Parser::LoopStatement(){
 	labelTrue = generator->newLabel("Loop_True");
 	labelEnd = generator->newLabel("Loop_End");
 	
+	generator->tabDec();
+	generator->placeLabel(labelCond);
+	generator->tabInc();
+
 	/* get assignment statement and expression for loop: '( <assignment_statement> ; <expression> )'
 	 * Throws errors if '(' or ')' is missing. Throws warnings for other missing components */
 	if( !CheckToken(T_LPAREN) ) ReportFatalError("expected '(' before assignment and expression in for loop statement");
@@ -810,11 +823,6 @@ bool Parser::LoopStatement(){
 	if( !Assignment(id) ) ReportError("expected an assignment at start of for loop statement");
 
 	if( !CheckToken(T_SEMICOLON) ) ReportError("expected ';' separating assignment statement and expression in for loop statement");
-	else{
-		generator->tabDec();
-		generator->placeLabel(labelCond);
-		generator->tabInc();
-	}
 
 	if( !Expression(type, size) ) ReportError("expected a valid expression following assignment in for loop statement");
 	else generator->condBranch( labelTrue, labelEnd );
@@ -864,13 +872,13 @@ bool Parser::ReturnStatement(){
 bool Parser::Expression(int &type, int &size){
 	//flag used to determine if an expression is required following a 'NOT' token
 	bool notOperation;
-	
 	if( CheckToken(T_NOT) ) notOperation = true;
 	else notOperation = false;
 	
 	//get type and size of first arithOp
 	if( ArithOp(type, size) ){
 		if( (notOperation) && (type != TYPE_BOOL) && (type != TYPE_INTEGER) )ReportError("'NOT' operator is defined only for type Bool and Integer.");
+		else if (notOperation) generator->NotOnRegister(type, size);
 		ExpressionPrime(type, size, true, true);
 		return true;
 	}
@@ -878,7 +886,10 @@ bool Parser::Expression(int &type, int &size){
 		ReportFatalError("Expected an integer / boolean ArithOp following 'NOT'");
 		return true;
 	}
-	else return false;
+	else{
+		cout << "expression false" << endl;
+		return false;
+	}
 }
 
 /*  <expression'> ::=
@@ -929,7 +940,7 @@ bool Parser::ExpressionPrime(int &inputType, int &inputSize, bool catchTypeError
 		
 		// GEN: Evaluate expression and push register onto the stack to pass to upper expression
 		// Do not need resulting string since expression result is pushed back onto the stack
-		generator->evalExpr( op );
+		generator->evalExpr( op, inputSize, arithOpSize, inputType, arithOpType );
 		
 		return true;
 	}
@@ -993,7 +1004,7 @@ bool Parser::ArithOpPrime( int &inputType, int &inputSize, bool catchTypeError, 
 	ArithOpPrime( inputType, inputSize, catchTypeError, catchSizeError );
 	
 	//Evaluate arith op and push to the stack
-	generator->evalExpr( op );
+	generator->evalExpr( op, inputSize, relationSize, inputType, relationType );
 	
 	return true;
 }
@@ -1055,7 +1066,7 @@ bool Parser::RelationPrime(int &inputType, int &inputSize, bool catchTypeError, 
 		RelationPrime(inputType, inputSize, catchTypeError, catchSizeError);
 		
 		//evaluate relation expression and push to the codegenerator evaluation stack
-		generator->evalExpr( op );
+		generator->evalExpr( op, inputSize, termSize, inputType, termType );
 		
 		return true;
 	}
@@ -1111,7 +1122,7 @@ bool Parser::TermPrime(int &inputType, int &inputSize, bool catchTypeError, bool
 	TermPrime(inputType, inputSize, catchTypeError, catchSizeError);
 	
 	//evaluate term and push to the code generator expression stack
-	generator->evalExpr( op );
+	generator->evalExpr( op, inputSize, factorSize, inputType, factorType );
 	
 	return true;
 }
@@ -1191,7 +1202,10 @@ bool Parser::Factor(int &type, int &size){
 		size = 0;
 		return true;
 	}
-	else return false;
+	else{
+		cout << token->ascii << endl;
+		return false;
+	}
 }
 
 // <name> ::= <identifier> { [ <epression> ] }
@@ -1225,7 +1239,7 @@ bool Parser::Name(int &type, int &size){
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
 					// GEN: MM to REG for specific array element
-					generator->ArrayMMtoREG( type, nameValue.FPoffset, size2 );
+					generator->ArrayMMtoREGIndirect( type, nameValue.FPoffset, "", previousFrames );
 					return true;
 				}
 				else ReportError("Expected ']' after expression in name.");
@@ -1234,8 +1248,8 @@ bool Parser::Name(int &type, int &size){
 		}
 		else{
 			// GEN: MM to REG for scalars / full arrays
-			if(size > 0) generator->ArrayMMtoREG( type, nameValue.FPoffset, -1, size );
-			else generator->MMtoREG( type, nameValue.FPoffset );
+			if(size > 0) generator->ArrayMMtoREG( type, nameValue.FPoffset, -1, size, previousFrames );
+			else generator->MMtoREG( type, nameValue.FPoffset, previousFrames );
 			return true;
 		}
 	}
@@ -1266,6 +1280,7 @@ bool Parser::Float(){
 	string val = token->ascii;
 	if(CheckToken(TYPE_FLOAT)){
 		generator->VALtoREG( val, TYPE_FLOAT );
+		return true;
 	}
 	else return false;
 }
@@ -1295,11 +1310,11 @@ bool Parser::Char(){
 bool Parser::Bool(){
 	string val = token->ascii;
 	if(CheckToken(T_TRUE)){
-		generator->VALtoREG( "true", TYPE_BOOL);
+		generator->VALtoREG( "1", TYPE_BOOL);
 		return true;
 	}
 	else if(CheckToken(T_FALSE)){
-		generator->VALtoREG( "false", TYPE_BOOL);
+		generator->VALtoREG( "0", TYPE_BOOL);
 		return true;
 	}
 	else return false;

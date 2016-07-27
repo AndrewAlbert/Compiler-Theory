@@ -52,7 +52,9 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 					value.bytes = 0;
 			}
 			value.FPoffset = totalBytes;
-			totalBytes += value.bytes;
+			
+			if( value.size > 0 ) totalBytes += value.size * value.bytes;
+			else totalBytes += value.bytes;
 		}
 		
 		if(global) globalTable[identifier] = value;

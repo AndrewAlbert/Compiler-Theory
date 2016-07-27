@@ -61,7 +61,7 @@ class Parser
 		// Statements
 		bool Statement();
 		bool Assignment(string &id);
-		bool Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found);
+		bool Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found, int &prevFrames, bool &indirect);
 		bool IfStatement();
 		bool LoopStatement();
 		bool ReturnStatement();
