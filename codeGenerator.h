@@ -17,36 +17,32 @@ class codeGenerator
 		int MM_SIZE = 1024*1024*32;
 		int REG_SIZE = 1024*1024;
 		string regIdentifier = "Reg";
-		string fregIdentifier = "fReg";
 		string memoryIdentifier = "MM";
 		int HeapSize;
-
-		struct data{
-			string value;
-			int type;
-			int size;
-			int index;
-		};
+		bool ContinueToGenerate;
+		bool ShouldGenerate();
 
 		//Stack for evaluating expressions
 		int reg_in_use;
-		int freg_in_use;
 		int label_count;
 		stack<string> exprStack;
 		stack<string> rightStack;
 		stack<string> leftStack;
 		
+		
 		//Output file for generated C code
 		FILE* oFile;
 		int tabs;
 		void writeLine( string line );
-		bool ContinueToGenerate;
 	public:
 		//Miscellaneous
 		codeGenerator();
 		~codeGenerator();
+
+		void pushStack( string value, char stackID = 'E' );
+		string popStack( char stackID = 'E');
+
 		void stopCodeGeneration();
-		bool ShouldGenerate();
 		void tabInc();
 		void tabDec();
 		void comment(string str, int line = 1);
@@ -62,36 +58,40 @@ class codeGenerator
 		// Goto handling functions
 		string newLabel( string prefix = "" );
 		void placeLabel( string label );
-		void setReturnAddress( int MMoffset, string label );
-
-		// 
-		void createProcedure();
-		void pushParameter();
-		void popParameter();
-
-		// Expression evaluations
-		void pushStack( string value, int stackID = 0 );
-		string popStack( int stackID = 0);
+		
+		// Expressions
 		string evalExpr( string op, int size_left = 0, int size_right = 0, int type_left = TYPE_INTEGER, int type_right = TYPE_INTEGER );
+		void NotOnRegister( int type, int size = 0 );
+		void NegateTopRegister( int type, int size = -1 );
+
+		string reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal );
 
 		// MM and Reg operations. Reg < 0 results in grabbing a free register
-		string MMtoREG( int type, int MMoffset, int prevFrames = 0, int reg = -1, bool push = true );
-		string REGtoMM( int type, int MMoffset, int size = 0, int prevFrames = 0, int reg = -1, bool push = true );
-		string VALtoREG( string val, int type = TYPE_INTEGER, int prevFrames = 0, int reg = -1, bool push = true );
-		string ArrayMMtoREG( int type, int MMoffset, int index = -1, int size = -1, int reg = -1, bool push = true);
-		string ArrayMMtoREGIndirect( int type, int MMoffset, string index_reg = "", int previousFrames = 0, int reg = -1, bool push = true);
-		string REGtoMMIndirect(int type, int MMoffset, string index_reg = "", int previousFrames = 0, int reg = -1, bool push = true);
-		string newRegister( int type = TYPE_INTEGER);
-		string getRegister( int id, int type = TYPE_INTEGER );
-		void callProcedure( string retLabel, scopeValue procValue );
-		void createProcedureFooter(string procedureName);
+		string MMtoREG( int type, int FPoffset, int prevFrames = 0);
+		string VALtoREG( string val, int type );
+		string ArrayMMtoREG( int type, int FPoffset, int index = -1, int size = -1, int previousFrames = 0);
+		string ArrayMMtoREGIndirect( int type, int FPoffset, string index_reg = "", int previousFrames = 0);
+
+		// Register handling
+		string newRegister();
+		string getRegister( int id );
+
+		// Procedures
+		void createProcedure();
 		void createProcedureHeader(string procedureName);
+		void createProcedureFooter(string procedureName);
+		void callProcedure( string retLabel, scopeValue procValue );
+		void pushParameter();
+		void popParameter();
+		void setReturnAddress( int FPoffset, string label );
 		void ProcedureReturn();
-		void printStack();
+
+		// Branching
 		void condBranch( string labelTrue, string labelFalse = "");
 		void branch( string label );
+
+		// Strings
 		char* AddStringHeap( string str );
-		void NotOnRegister( int type, int size = 0 );	
 };
 
 #endif

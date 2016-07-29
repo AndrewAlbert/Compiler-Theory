@@ -501,7 +501,7 @@ bool Parser::ProcedureCall(string id){
 	//variable to store information about the procedure declaration from the symbol table, if one exists
 	scopeValue procedureCall;
 	
-	int previousFrames;
+	bool isGlobal;
 	
 	//ensure an id was found in the assignment statement check called right before ProcedureCall
 	if(id == "") return false;
@@ -514,7 +514,7 @@ bool Parser::ProcedureCall(string id){
 	else ReportError("expected '(' in procedure call");
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
-	if( Scopes->checkSymbol(id, procedureCall, previousFrames) ){
+	if( Scopes->checkSymbol(id, procedureCall, isGlobal) ){
 		bool match = true;
 		vector<scopeValue>::iterator it1 = argList.begin();
 		vector<scopeValue>::iterator it2 = procedureCall.arguments.begin();
@@ -624,22 +624,21 @@ bool Parser::Assignment(string &id){
 	int type, size, dType, dSize;
 	bool found;
 	scopeValue destinationValue;
-	int previousFrames = 0;
-	bool indirect;
+	bool isGlobal;
 	//Determine destination if this is a valid assignment statement
-	if( !Destination(id, dType, dSize, destinationValue, found, previousFrames, indirect) ) return false;
+	if( !Destination(id, dType, dSize, destinationValue, found, isGlobal) ) return false;
 	
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
 		Expression(type, size);
 
 		if(found){
-			if(size != dSize && (size != 0) && (dSize != 0)) ReportError("Bad assignment, size of expression must match destination's size.");
+			if(size != dSize && (size > 1) && (dSize <= 1)) ReportError("Bad assignment, size of expression must match destination's size.");
 			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
 		// GEN: Move expression result to MM
-		if( indirect) generator->REGtoMMIndirect( dType, destinationValue.FPoffset, "", previousFrames);
-		else generator->REGtoMM( dType, destinationValue.FPoffset, dSize, previousFrames );
+		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal);
+
 		return true;
 	}
 	else{
@@ -652,14 +651,13 @@ bool Parser::Assignment(string &id){
  * Returns the destination's identifier (will be used in procedure call if assignment fails).
  * Returns destination's type and size for comparison with what is being assigned to the destination. 
  */
-bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found, int &prevFrames, bool &indirect){
+bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found, bool &isGlobal){
 	//Variable to hold destination symbol's information from the nested scope tables
-	int type, size, previousFrames;
-	indirect = false;
+	int type, size;
 
 	if( Identifier(id) ){
-		found = Scopes->checkSymbol(id, destinationValue, previousFrames);
-		prevFrames = previousFrames;
+		found = Scopes->checkSymbol(id, destinationValue, isGlobal);
+		//prevFrames = previousFrames;
 		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
 		else if(!found){
@@ -674,7 +672,6 @@ bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destina
 		
 		if(CheckToken(T_LBRACKET)){
 			if( Expression(type, size) ){
-				indirect = true;
 				//ensure array index is a single numeric value
 				if( size != 0 || ( (type != TYPE_FLOAT) && ( type != TYPE_INTEGER) && ( type != TYPE_BOOL) ) ) {
 					ReportError("Destination array's index must be a scalar numeric value");
@@ -730,9 +727,7 @@ bool Parser::IfStatement(){
 	/* Get statements to be evaluated if the statement's expression evaluates to true. 
 	 * There must be at least one statement following 'then'. */
 	if( CheckToken(T_THEN) ){
-		generator->tabDec();
 		generator->placeLabel( labelTrue );
-		generator->tabInc();
 		flag = false;
 		while(true){
 			while( Statement() ){
@@ -746,9 +741,7 @@ bool Parser::IfStatement(){
 
 			/* Get statements to be evaluated if the statement's expression evaluates to false. 
 		 	 * There must be at least one statement if there is an 'else' case. */
-			generator->tabDec();
 			generator->placeLabel(labelFalse);
-			generator->tabInc();
 			if(CheckToken(T_ELSE)){
 				flag = false;
 				resyncEnabled = true;
@@ -763,9 +756,7 @@ bool Parser::IfStatement(){
 					generator->branch(labelEnd);
 
 					if( CheckToken(T_END) ){
-						generator->tabDec();
 						generator->placeLabel(labelEnd);
-						generator->tabInc();
 						if( !flag ) ReportError("expected at least one statement after 'else' in conditional statement.");
 						if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of conditional statement");
 						return true;
@@ -779,9 +770,7 @@ bool Parser::IfStatement(){
 			}
 			/* check for correct closure of statement: 'end if' */
 			else if( CheckToken(T_END) ){
-				generator->tabDec();
 				generator->placeLabel(labelEnd);
-				generator->tabInc();
 				if( !CheckToken(T_IF) ) ReportFatalError("missing 'if' in the 'end if' closure of the if statement");
 				return true;
 			}
@@ -812,9 +801,7 @@ bool Parser::LoopStatement(){
 	labelTrue = generator->newLabel("Loop_True");
 	labelEnd = generator->newLabel("Loop_End");
 	
-	generator->tabDec();
 	generator->placeLabel(labelCond);
-	generator->tabInc();
 
 	/* get assignment statement and expression for loop: '( <assignment_statement> ; <expression> )'
 	 * Throws errors if '(' or ')' is missing. Throws warnings for other missing components */
@@ -828,9 +815,7 @@ bool Parser::LoopStatement(){
 	else generator->condBranch( labelTrue, labelEnd );
 
 	if( !CheckToken(T_RPAREN) ) ReportError("expected ')' after assignment and expression in for loop statement");
-	generator->tabDec();
 	generator->placeLabel(labelTrue);
-	generator->tabInc();
 	while(true){
 		while( Statement() ){
 			if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after statement in for loop",true);
@@ -840,9 +825,7 @@ bool Parser::LoopStatement(){
 		generator->branch(labelCond);
 
 		if( CheckToken(T_END) ){
-			generator->tabDec();
 			generator->placeLabel(labelEnd);
-			generator->tabInc();
 			if( !CheckToken(T_FOR) ) ReportError("missing 'for' in the 'end for' closure of the for loop statement");
 			return true;
 		}
@@ -887,7 +870,6 @@ bool Parser::Expression(int &type, int &size){
 		return true;
 	}
 	else{
-		cout << "expression false" << endl;
 		return false;
 	}
 }
@@ -1154,20 +1136,20 @@ bool Parser::Factor(int &type, int &size){
 		if( Integer() ){
 			type = TYPE_INTEGER;
 			size = 0;
-			// generator->negateRegister
+			generator->NegateTopRegister( type );
 			return true;
 		}
 		else if( Float() ){
 			type = TYPE_FLOAT;
 			size = 0;
-			// generator->negateRegister
+			generator->NegateTopRegister( type );
 			return true;
 		}
 		else if( Name(tempType, tempSize) ){
 			type = tempType;
 			size = tempSize;
 			if( !isNumber(type) ) ReportError(" negation '-' before variable name is valid only for integers and floats.");
-			// generator->negateRegister
+			generator->NegateTopRegister( type );
 			return true;
 		}
 		else return false;
@@ -1203,7 +1185,6 @@ bool Parser::Factor(int &type, int &size){
 		return true;
 	}
 	else{
-		cout << token->ascii << endl;
 		return false;
 	}
 }
@@ -1212,9 +1193,9 @@ bool Parser::Factor(int &type, int &size){
 bool Parser::Name(int &type, int &size){
 	string id;
 	scopeValue nameValue;
-	int previousFrames;
+	bool isGlobal;
 	if( Identifier(id) ){
-		bool symbolExists = Scopes->checkSymbol(id, nameValue, previousFrames);
+		bool symbolExists = Scopes->checkSymbol(id, nameValue, isGlobal);
 		if(symbolExists){
 			if(nameValue.type == TYPE_PROCEDURE){
 				ReportError(id + " is a procedure in this scope, not a variable.");
@@ -1239,7 +1220,7 @@ bool Parser::Name(int &type, int &size){
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
 					// GEN: MM to REG for specific array element
-					generator->ArrayMMtoREGIndirect( type, nameValue.FPoffset, "", previousFrames );
+					generator->ArrayMMtoREGIndirect( type, nameValue.FPoffset, "" );
 					return true;
 				}
 				else ReportError("Expected ']' after expression in name.");
@@ -1248,8 +1229,8 @@ bool Parser::Name(int &type, int &size){
 		}
 		else{
 			// GEN: MM to REG for scalars / full arrays
-			if(size > 0) generator->ArrayMMtoREG( type, nameValue.FPoffset, -1, size, previousFrames );
-			else generator->MMtoREG( type, nameValue.FPoffset, previousFrames );
+			if(size > 0) generator->ArrayMMtoREG( type, nameValue.FPoffset, -1, size );
+			else generator->MMtoREG( type, nameValue.FPoffset );
 			return true;
 		}
 	}

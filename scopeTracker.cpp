@@ -8,6 +8,7 @@ scopeTracker::scopeTracker(bool debug_input){
 	debug = debug_input;
 	tmpPtr = nullptr;
 	curPtr = nullptr;
+	outermost = nullptr;
 }
 
 scopeTracker::~scopeTracker(){
@@ -23,6 +24,7 @@ void scopeTracker::newScope(){
 	else{
 		curPtr = new scope();
 		curPtr->prevScope = tmpPtr;
+		outermost = curPtr;
 	}
 }
 
@@ -61,24 +63,32 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 }
 
 //returns true if symbol exists and puts its table entry into &value
-bool scopeTracker::checkSymbol(string identifier, scopeValue &value, int &previousFrames){
+bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool &global){
 	// Ensure there is actuall a scope to check
 	if(curPtr == nullptr) return false;
-	else tmpPtr = curPtr;
-	previousFrames = 0; // Number of previous scopes that had to be checked to find the symbol
 	
 	// Check local symbols of current scope
-	bool found = tmpPtr->checkSymbol(identifier, false);
+	bool found = curPtr->checkSymbol(identifier, false);
 	if(found){
-		value = tmpPtr->getSymbol(identifier);
+		value = curPtr->getSymbol(identifier);
 		return true;
 	}
+	else{
+		found = outermost->checkSymbol(identifier, true);
+		if(found){
+			value = outermost->getSymbol(identifier);
+			return true; 
+		}
+		else return false;
+	}
+/*
 	else if(tmpPtr->prevScope != nullptr){
 		tmpPtr = tmpPtr->prevScope;
 	}
 	else{
 		return false;
 	}
+	
 	
 	// Check global symbols of all upper scopes
 	while(tmpPtr != nullptr){
@@ -92,7 +102,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value, int &previo
 			if(tmpPtr->prevScope == nullptr) return false;
 			else tmpPtr = tmpPtr->prevScope;
 		}
-	}
+	}*/
 	return false;
 }
 

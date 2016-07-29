@@ -11,7 +11,6 @@ using namespace std;
 
 codeGenerator::codeGenerator(){
 	reg_in_use = 0;
-	freg_in_use = 0;
 	label_count = 0;
 	tabs = 0;
 	HeapSize = 0;
@@ -80,9 +79,8 @@ void codeGenerator::header(){
 	writeLine( "void* FP = " + memoryIdentifier + ";" );
 	writeLine( "void* SP = " + memoryIdentifier + ";" );
 
-	//Declare int / float registers
-	writeLine( "int* " + regIdentifier + " = (int*) calloc( REG_SIZE, sizeof(int) );" );
-	writeLine( "float* " + fregIdentifier + " = (float*) calloc( REG_SIZE, sizeof(float) );\n" );
+	//Declare registers
+	writeLine( "void* " + regIdentifier + " = (void*) calloc( REG_SIZE, sizeof(int) );" );
 	writeLine( "goto *(&&Label_0_Begin_Program);" );
 	
 }
@@ -120,11 +118,6 @@ string codeGenerator::typeString( int type ){
 	}
 }
 
-void codeGenerator::printStack(){
-	
-	return;
-}
-
 void codeGenerator::writeLine( string line ){
 	if( !ShouldGenerate() ) return;
 	else{
@@ -138,76 +131,57 @@ void codeGenerator::writeLine( string line ){
 	}
 }
 
-void codeGenerator::pushStack( string value, int stackID ){
-	size_t found;
-	found = value.find(fregIdentifier);
+void codeGenerator::pushStack( string value, char stackID ){
+	cout << "Push: " << stackID << " | " << value << endl;
 	switch( stackID ){
-		case -1:
+		case 'L':
 			leftStack.push( value );
-			break;
-		case 0:
+			return;
+		case 'E':
 			exprStack.push( value );
-			if( found != string::npos ) freg_in_use++;
-			else reg_in_use++;
-			break;
-		case 1:
+			reg_in_use++;
+			return;
+		case 'R':
 			rightStack.push( value );
-			break;
+			return;
+		default:
+			cout << "Not a valid expression stack!\n";
+			return;
 	}
-	return;
 }
 
 
-string codeGenerator::popStack( int stackID ){
-	size_t found;
-	string ret;
-	
+string codeGenerator::popStack( char stackID ){
+	cout << "Pop: " << stackID << endl;
+	string returnStr;
 	switch( stackID ){
-		case -1:
+		case 'L':
 			if(leftStack.size() == 0){
 				cout << "LEFT STACK EMPTY!\n";
-				//break;
+				return "";
 			}
-			ret = leftStack.top();
+			returnStr = leftStack.top();
 			leftStack.pop();
 			break;
-		case 0:
+		case 'E':
 			if(exprStack.size() == 0){
 				cout << "EXPR STACK EMPTY!\n";
-				//break;
+				return "";
 			}
-			ret = exprStack.top();
+			returnStr = exprStack.top();
 			exprStack.pop();
-			found = ret.find(fregIdentifier);
-			if( found != string::npos ) freg_in_use--;
-			else reg_in_use--;
+			reg_in_use--;
 			break;
-		case 1:
+		case 'R':
 			if(rightStack.size() == 0){
 				cout << "RIGHT STACK EMPTY!\n";
-				//break;
+				return "";
 			}
-			ret = rightStack.top();
+			returnStr = rightStack.top();
 			rightStack.pop();
 			break;
 	}
-	return ret;
-}
-
-void codeGenerator::condBranch( string labelTrue, string labelFalse ){
-	string cond = popStack();
-	comment("Conditional branch");
-	// goto true condition
-	writeLine("if( " + cond + " ) goto *( &&" + labelTrue + " );");
-	// goto else condition
-	if( labelFalse.compare("") != 0 ) writeLine( "goto *( &&" + labelFalse + " );");
-	return;
-}
-
-void codeGenerator::branch( string label ){
-	comment("Unconditional branch");
-	writeLine( "goto *( &&"+ label + " );");
-	return;
+	return returnStr;
 }
 
 string codeGenerator::evalExpr( string op, int size_left, int size_right, int type_left, int type_right ){
@@ -217,8 +191,12 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 	if( size_right == 0 ) size_right++;
 	comment("Evaluate expression: " + op);
 	//Select int registers or float registers
-	if( type_left != type_right ) type_result = TYPE_FLOAT;
-	else type_result = TYPE_INTEGER;
+	if( type_left != type_right ){
+		if( ( type_left == TYPE_FLOAT ) || ( type_right == TYPE_FLOAT ) ) type_result = TYPE_FLOAT;
+		else if( ( type_left == TYPE_BOOL ) || ( type_right == TYPE_BOOL ) ) type_result = TYPE_BOOL;
+		else type_result = TYPE_INTEGER;
+	}
+	else type_result = type_left;
 
 	if(op.compare("&") == 0){ 
 		if( (type_left == TYPE_BOOL) || (type_right == TYPE_BOOL) ) op = "&&";
@@ -232,60 +210,57 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 		if( (type_left == TYPE_BOOL) || (type_right == TYPE_BOOL) ) op = "!";
 		else op = "~";
 	}
+
 	if( ( size_left > 1 ) && ( size_right > 1) ){
 		for( i = 0; i < size_right; i++ ){
-			rhs = popStack(0);
-			pushStack(rhs, 1);
+			rhs = popStack();
+			pushStack(rhs, 'R');
 		}
 		for( i = 0; i < size_left; i++ ){
-			lhs = popStack(0);
-			pushStack(lhs, -1);
+			lhs = popStack();
+			pushStack(lhs, 'L');
 		}
 		for( i = 0; i < size_left; i++ ){
-			rhs = popStack(1);
-			lhs = popStack(-1);
-			result = newRegister(type_result);
+			rhs = popStack('R');
+			lhs = popStack('L');
+			result = newRegister();
 			pushStack( result );
 			writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
 		}
 	}
 	else if( size_left > 1 ){
-		rhs = popStack(0);
-		pushStack(rhs, 1);
+		rhs = popStack();
+		pushStack(rhs, 'R');
 		for( i = 0; i < size_left; i++ ){
-			lhs = popStack(0);
-			pushStack(lhs, -1);
+			lhs = popStack();
+			pushStack(lhs, 'L');
 		}
+		rhs = popStack('R');
 		for( i = 0; i < size_left; i++ ){
-			rhs = rightStack.top();
-			lhs = popStack(-1);
-			result = newRegister(type_result);
+			lhs = popStack('L');
+			result = newRegister();
 			pushStack( result );
 			writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
 		}
-		rightStack.pop();
 	}
 	else if( size_right > 1 ){
 		for( i = 0; i < size_right; i++ ){
-			rhs = popStack(0);
+			rhs = popStack();
 			rightStack.push( rhs );
 		}
-		lhs = popStack(0);
-		leftStack.push( lhs );
+		lhs = popStack();
 		for( i = 0; i < size_right; i++ ){
 			rhs = rightStack.top();
 			rightStack.pop();
-			lhs = leftStack.top();
-			result = newRegister(type_result);
+			result = newRegister();
 			pushStack( result );
 			writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
 		}
-		leftStack.pop();
 	}
 	else{
-		rhs = popStack(0);
-		lhs = popStack(0);
-		result = newRegister(type_result);
+		rhs = popStack();
+		lhs = popStack();
+		result = newRegister();
 		pushStack( result );
 		writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
 	}
@@ -294,16 +269,12 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 	return result;
 }
 
-string codeGenerator::newRegister( int type ){
-	if( type == TYPE_FLOAT) return getRegister( freg_in_use, type );
-	return getRegister( reg_in_use, type );
+string codeGenerator::newRegister( ){
+	return getRegister( reg_in_use );
 }
 
-string codeGenerator::getRegister( int id, int type ){
-	if( type == TYPE_FLOAT )
-		return ( fregIdentifier + "[" + to_string( id ) + "]");
-	else
-		return ( regIdentifier + "[" + to_string( id ) + "]");
+string codeGenerator::getRegister( int id ){
+	return ( regIdentifier + "[" + to_string( id ) + "]");
 }
 
 void codeGenerator::NotOnRegister( int type, int size ){
@@ -312,15 +283,12 @@ void codeGenerator::NotOnRegister( int type, int size ){
 	comment("Not Operation on Register");
 	if( size == 0 ) size = 1;
 	for( int i = 0; i < size; i++ ){
-		reg = exprStack.top();
-		rightStack.push( reg );
-		exprStack.pop();
+		reg = popStack();
+		pushStack( reg, 'R' );
 	}
 	for( int i = 0; i < size; i++ ){
-		reg = rightStack.top();
-		exprStack.push( reg );
-		rightStack.pop();
-		line = "";
+		reg = popStack('R');
+		pushStack(reg);
 		if( type == TYPE_BOOL ){
 			line = reg + " = !( " + reg + " );";
 		}
@@ -333,19 +301,17 @@ void codeGenerator::NotOnRegister( int type, int size ){
 }
 
 //
-string codeGenerator::VALtoREG( string val, int type, int prevFrames, int reg, bool push ){
+string codeGenerator::VALtoREG( string val, int type ){
 	string destination, typeMark;
-	if( prevFrames != 0 ) comment("global variable");
 	comment("Constant Value to Register");
-	if( reg < 0 ) destination = newRegister(type);
-	else destination = getRegister( reg, type );
+	destination = newRegister();
 	
 	if( type == TYPE_CHAR ) 
 		val = "\'" + val + "\'";
 	else if( type == TYPE_STRING )
 		val = "\"" + val + "\"";
 
-	if ( push ) pushStack( destination);
+	pushStack( destination );
 	writeLine( destination + " = " + val + ";");
 	return destination;
 }
@@ -377,108 +343,124 @@ int codeGenerator::typeSize( int type ){
 	}
 }
 
-string codeGenerator::ArrayMMtoREGIndirect( int type, int MMoffset, string index_reg, int previousFrames, int reg, bool push){
+string codeGenerator::ArrayMMtoREGIndirect( int type, int FPoffset, string index_reg, int previousFrames){
 	int entrySize = typeSize( type );
 	string destination, source;
 	comment("Array Element Memory to Register Indirect");
-	index_reg = popStack(0);
-	if( reg < 0 ) destination = newRegister(type);
-	else destination = getRegister( reg, type );
+	source = popStack();
+	index_reg = popStack();
+	destination = newRegister();
 
 	writeLine( index_reg + " = " + index_reg + " * " + to_string(entrySize) + ";" );
-	writeLine( index_reg + " = " + index_reg + " + " + to_string(MMoffset) + ";" );
+	writeLine( index_reg + " = " + index_reg + " + " + to_string(FPoffset) + ";" );
 	
 	destination = "*(" + typeString(type) + "*)( SP + " + index_reg + " )";
 
 	writeLine( destination + " = " + source + ";");
-
-	/*source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset) + " + " + to_string(entrySize) + " * " + index_reg + " ) " + " )";
-	writeLine( destination + " = " + source + ";");*/
-	if ( push ) pushStack( destination);
+	pushStack( destination );
 	return destination;
 }
 
-string codeGenerator::ArrayMMtoREG( int type, int MMoffset, int index, int size, int reg , bool push){
+string codeGenerator::ArrayMMtoREG( int type, int FPoffset, int index, int size, int previousFrames){
 	// Get size of each array entry in memory
 	int entrySize = typeSize( type );
 	string source, destination;
 	if(index < 0){
 		// Move each array element onto the stack
-		comment("Full Array Memory to Register");
+		comment("Full Array Memory to Register1");
 		int i;
 		if( size == 0 ) size++;
 		for(i = 0; i < size; i++){
-			if( reg < 0 ) destination = newRegister(type);
-			else destination = getRegister( reg + i, type );
-			source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset + entrySize * i ) +" )";
+			destination = newRegister();
+			source = "*(" + typeString( type ) + "*)( SP + " + to_string(FPoffset + entrySize * i ) +" )";
 			writeLine( destination + " = " + source + ";" );
-			if ( push ) pushStack( destination);
+			pushStack( destination);
 		}
 		return destination;
 	}
 	else{
-		comment("Array Element Memory to Register");
-		if( reg < 0 ) destination = newRegister(type);
-		else destination = getRegister( reg, type );
-		source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset + entrySize * index ) +" )";
+		comment("Array Element Memory to Register2");
+		destination = newRegister();
+		source = "*(" + typeString( type ) + "*)( SP + " + to_string(FPoffset + entrySize * index ) +" )";
 		writeLine( destination + " = " + source + ";");
-		if ( push ) pushStack( destination);
+		pushStack( destination);
 		return destination;
 	}
 }
 
+void codeGenerator::NegateTopRegister( int type, int size ){
+	string reg, cast;
+	int i;
+
+	cast = "*(" + typeString(type) + "*)";
+	for( i = 0; i < size; i++ ){
+		reg = popStack();
+		pushStack( reg, 'L' );
+		writeLine( cast + reg + " = - " + cast + reg + ";");
+	}
+	for( i = 0; i < size; i++ ){
+		reg = popStack('L');
+		writeLine( cast + reg + " = - " + cast + reg + ";");
+	}
+	return;
+}
+
+string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal ){
+	int i;
+	string reg, mem, source, destination;
+	comment("regSize: " + to_string(regSize) + " memSize: " + to_string(memSize));
+	if( isGlobal ){
+		mem = "MM";
+		comment("Global Variable: Reg to MM\n");
+	}
+	else{
+		mem = "FP";
+		comment("Variable: Reg to MM");
+	}
+
+	string memCast = "*(" + typeString(memType) + "*)";
+	string regCast = "*(" + typeString(regType) + "*)";
+	int memBytes = typeSize( memType );
+	int regBytes = typeSize( regType );
+	if( regSize == 0 ) regSize++;
+	if( memSize == 0 ) memSize++;
+	
+	for( i = 0; i < regSize; i++ ){
+		reg = popStack();
+		pushStack( reg, 'R' );
+	}
+
+	if( regSize > 1 && regSize == memSize ){
+		cout << "regsize: " << regSize << " memSize: " << memSize << endl;
+		for( i = 0; i < memSize; i++ ){
+			reg = popStack('R');
+			source = regCast + reg;
+			destination = memCast + "( " + mem + to_string(FPoffset + i * memBytes ) + " )";
+		  writeLine( destination + " = " + source + ";");
+		}
+	}
+	else if ( regSize == 1 ){
+		cout << "regsize: " << regSize << " memSize: " << memSize << endl;
+		source = popStack('R');
+		source = regCast + reg;
+		for( i = 0; i < memSize; i++ ){
+		  destination = memCast + "( " + mem + to_string(FPoffset + i * memBytes ) + " )";
+		  writeLine( destination + " = " + source + ";");
+		}
+	}
+	return "";
+}
+
 // Returns the string representing the destination register for stack operations.
-string codeGenerator::MMtoREG( int type, int MMoffset, int prevFrames, int reg , bool push){
+string codeGenerator::MMtoREG( int type, int FPoffset, int prevFrames){
 	if( prevFrames != 0 ) comment("global variable");
 	string source, destination;
 	comment("Memory to Register");
-	if( reg < 0 ) destination = newRegister(type);
-	else destination = getRegister( reg, type );
-	source = "*(" + typeString( type ) + "*)( SP + " + to_string(MMoffset) +" )";
+	destination = newRegister();
+	source = "*(" + typeString( type ) + "*)( SP + " + to_string(FPoffset) +" )";
 	writeLine( destination + " = " + source + ";");
-	if ( push ) pushStack( destination);
+	pushStack( destination);
 	return destination;
-}
-
-// Returns the string representing the source register for stack operations.
-string codeGenerator::REGtoMM( int type, int MMoffset, int size, int prevFrames, int reg, bool push ){
-	if( prevFrames != 0 ) comment("global variable");
-	string source, destination;
-	int i, entrySize;
-	entrySize = typeSize( type );
-	comment("Register to Memory");
-	if( size == 0 ) size++;
-	for( i = 0; i < size; i++ ){
-		if(reg < 0 ) source = popStack();
-		else source = getRegister( reg, type );
-		rightStack.push( source );
-	}
-	for( i = 0; i < size; i++ ){
-		source = rightStack.top();
-		rightStack.pop();
-		destination = "*(" + typeString(type) + "*)( SP + " + to_string(MMoffset + i * entrySize ) + " )";
-		writeLine( destination + " = " + source + ";");
-	}
-	return source;
-}
-
-string codeGenerator::REGtoMMIndirect(int type, int MMoffset, string index_reg, int previousFrames, int reg, bool push){
-	if( previousFrames != 0 ) comment("global variable");
-	string source, destination;
-	int i, entrySize;
-	entrySize = typeSize( type );
-	comment("Register to Memory Indirect");
-	source = popStack(0);
-	index_reg = popStack(0);
-
-	writeLine( index_reg + " = " + index_reg + " * " + to_string(entrySize) + ";" );
-	writeLine( index_reg + " = " + index_reg + " + " + to_string(MMoffset) + ";" );
-	
-	destination = "*(" + typeString(type) + "*)( SP + " + index_reg + " )";
-
-	writeLine( destination + " = " + source + ";");
-		
-	return source;
 }
 
 // Get a guaranteed unique label string
@@ -488,26 +470,9 @@ string codeGenerator::newLabel( string prefix ){
 
 // Put label in file
 void codeGenerator::placeLabel( string label ){
+	tabDec();
 	writeLine( "\n" + label + ":" );
-	return;
-}
-
-// Set address of label to return to after procedure call
-void codeGenerator::setReturnAddress( int MMoffset, string label ){
-	string source, destination;
-	comment("set return address for procedure call");
-	source = "*(void*)( SP + " + to_string(MMoffset) + " )";
-	destination = "(void*)&&" + label;
-	writeLine( source + " = " + destination );
-	return;
-}
-
-//Return address of instruction is always after the void* to previous frame which is placed at the frame pointer
-void codeGenerator::ProcedureReturn(){
-	comment("procedure return");
-	//fprintf( oFile, MMtoREG( TYPE_INTEGER, );
-	writeLine( "(void*)FP = *(void*)(FP);" );
-	writeLine( "goto *(void*)( FP + " + to_string(sizeof(void*)) + ");" );
+	tabInc();
 	return;
 }
 
@@ -536,7 +501,12 @@ void codeGenerator::createProcedureFooter(string procedureName){
 	ProcedureReturn();
 	return;
 }
-		
+	
+void codeGenerator::callProcedure( string retLabel, scopeValue procValue ){
+	comment("Call procedure");
+	writeLine( "goto *(void*)( FP + " + to_string(sizeof(void*)) + ");" );
+}
+
 void codeGenerator::pushParameter( ){
 	
 	return;
@@ -547,7 +517,38 @@ void codeGenerator::popParameter( ){
 	return;
 }
 
-void codeGenerator::callProcedure( string retLabel, scopeValue procValue ){
-	comment("Call procedure");
+// Set address of label to return to after procedure call
+void codeGenerator::setReturnAddress( int FPoffset, string label ){
+	string source, destination;
+	comment("set return address for procedure call");
+	source = "*(void*)( SP + " + to_string(FPoffset) + " )";
+	destination = "(void*)&&" + label;
+	writeLine( source + " = " + destination );
+	return;
+}
+
+//Return address of instruction is always after the void* to previous frame which is placed at the frame pointer
+void codeGenerator::ProcedureReturn(){
+	comment("procedure return");
+	//fprintf( oFile, MMtoREG( TYPE_INTEGER, );
+	writeLine( "(void*)FP = *(void*)(FP);" );
 	writeLine( "goto *(void*)( FP + " + to_string(sizeof(void*)) + ");" );
+	return;
+}
+
+void codeGenerator::condBranch( string labelTrue, string labelFalse ){
+	string cond;
+	cond = popStack();
+	comment("Conditional branch");
+	// goto true condition
+	writeLine("if( " + cond + " ) goto *( &&" + labelTrue + " );");
+	// goto else condition
+	if( labelFalse.compare("") != 0 ) writeLine( "goto *( &&" + labelFalse + " );");
+	return;
+}
+
+void codeGenerator::branch( string label ){
+	comment("Unconditional branch");
+	writeLine( "goto *( &&"+ label + " );");
+	return;
 }
