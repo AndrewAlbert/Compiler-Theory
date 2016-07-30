@@ -19,6 +19,7 @@ codeGenerator::codeGenerator(){
 	SP_REG = "((int*)" + regIdentifier + ")[1]";
 	TP_REG = "((int*)" + regIdentifier + ")[2]";
 	HP_REG = "((int*)" + regIdentifier + ")[3]";
+	HeapSize = MM_SIZE - 1;
 }
 
 codeGenerator::~codeGenerator(){
@@ -56,7 +57,7 @@ bool codeGenerator::testOutFile(){
 }
 
 void codeGenerator::comment(string str, bool multi_line){
-	if( multi_line )	writeLine( "/*\n" + str + "\n*/" );
+	if( multi_line ) writeLine( "/*\n" + str + "\n*/" );
 	else writeLine( "// " + str );
 	return;
 }
@@ -65,25 +66,23 @@ void codeGenerator::header(){
 	//Attach necessary header files for c program
 	writeLine( "#include <stdio.h>" );
 	writeLine( "#include <stdlib.h>" );
-	writeLine( "#include <stdbool.h>" );
 	writeLine( "#include <string.h>\n" );
 
+	//Define the memory space attributes
+	writeLine( "#define MM_SIZE = " + to_string(MM_SIZE) + ";" );
+	writeLine( "#define REG_SIZE = " + to_string(REG_SIZE) + ";\n" );
+	
 	comment( "Begin program execution" );
 	//Call to main for function
 	writeLine( "int main( void ){" );
 
 	tabInc();
 
-	//Declare the memory space attributes
-	writeLine( "int MM_SIZE = " + to_string(MM_SIZE) + ";" );
-	writeLine( "int REG_SIZE = " + to_string(REG_SIZE) + ";\n" );
-
 	//Declare stack
  	writeLine( "void* " + memoryIdentifier + " = malloc( MM_SIZE );" );
 	
-
 	//Declare registers
-	comment("Registers\n   Reg[0] = FP\n   Reg[1] = SP\n   Reg[2] = TP\n   Reg[3] = HP", true);
+	comment("Registers\n      Reg[0] = FP   Reg[1] = SP   Reg[2] = TP   Reg[3] = HP", true);
 	writeLine( "void* " + regIdentifier + " = (void*) calloc( REG_SIZE, sizeof(int) );" );
 	writeLine( FP_REG + " = 0;" );
 	writeLine( SP_REG + " = 0;" );
@@ -126,11 +125,17 @@ string codeGenerator::typeString( int type ){
 	}
 }
 
-void codeGenerator::pushParameter(){
+void codeGenerator::pushParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex){
+	Comment("Push parameters onto the call stack")
+	mm2reg(type, varSize, varOffset, isGlobal, varIndex);
+	reg2mm(type, size, paramOffset, false);
 	return;
 }
 
-void codeGenerator::popParameter(){
+void codeGenerator::popParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex){
+	Comment("Pop parameters off of the call stack")
+	mm2reg(type, paramSize, paramOffset, false);
+	reg2mm(type, varSize, varOffset, isGlobal, varIndex);
 	return;
 }
 
@@ -176,7 +181,6 @@ void codeGenerator::pushStack( string value, char stackID ){
 			return;
 	}
 }
-
 
 string codeGenerator::popStack( char stackID ){
 	string returnStr;
