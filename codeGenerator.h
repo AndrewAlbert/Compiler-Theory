@@ -82,7 +82,7 @@ class codeGenerator
 		void createProcedureHeader(string procedureName);
 		void createProcedureFooter(string procedureName);
 		void callProcedure( string retLabel, scopeValue procValue );
-		void setReturnAddress( int FPoffset, string label );
+		void setReturnAddress( int SPoffset, string label );
 		void ProcedureReturn();
 
 		// Branching
