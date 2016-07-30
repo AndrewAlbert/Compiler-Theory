@@ -26,6 +26,7 @@ class scopeTracker
 		bool prevAddSymbol(string identifier, scopeValue value, bool global);
 		bool checkSymbol(string identifier, scopeValue &value, bool &global);
 		void ChangeScopeName(string &name);
+		int getFrameSize();
 };
 
 #endif

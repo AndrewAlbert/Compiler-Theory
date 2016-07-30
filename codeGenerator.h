@@ -21,7 +21,7 @@ class codeGenerator
 		int HeapSize;
 		bool ContinueToGenerate;
 		bool ShouldGenerate();
-
+		string FP_REG, SP_REG, HP_REG, TP_REG;
 		//Stack for evaluating expressions
 		int reg_in_use;
 		int label_count;
@@ -45,7 +45,7 @@ class codeGenerator
 		void stopCodeGeneration();
 		void tabInc();
 		void tabDec();
-		void comment(string str, int line = 1);
+		void comment(string str, bool multi_line = false);
 		bool attachOutputFile(string filename);
 		bool testOutFile();
 		void header();
@@ -64,6 +64,7 @@ class codeGenerator
 		void NotOnRegister( int type, int size = 0 );
 		void NegateTopRegister( int type, int size = -1 );
 
+		string mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index = -1);
 		string reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal );
 
 		// MM and Reg operations. Reg < 0 results in grabbing a free register
@@ -81,8 +82,6 @@ class codeGenerator
 		void createProcedureHeader(string procedureName);
 		void createProcedureFooter(string procedureName);
 		void callProcedure( string retLabel, scopeValue procValue );
-		void pushParameter();
-		void popParameter();
 		void setReturnAddress( int FPoffset, string label );
 		void ProcedureReturn();
 
@@ -92,6 +91,10 @@ class codeGenerator
 
 		// Strings
 		char* AddStringHeap( string str );
+
+		void pushParameter();
+		void popParameter();
+		void procedureCall( scopeValue calledProcedure, int frameSize, string returnLabel );
 };
 
 #endif

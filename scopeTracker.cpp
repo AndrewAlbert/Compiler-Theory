@@ -106,6 +106,11 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool &globa
 	return false;
 }
 
+// Return the size in bytes of the current symbol table. This will give the call fram size needed to place the table's parent procedure with parameters and local variables.
+int scopeTracker::getFrameSize(){
+	return curPtr->totalBytes;
+}
+
 // Set scope name - useful for debugging
 void scopeTracker::ChangeScopeName(string &name){
 	curPtr->setName(name);

@@ -10,11 +10,15 @@
 using namespace std;
 
 codeGenerator::codeGenerator(){
-	reg_in_use = 0;
+	reg_in_use = 4;
 	label_count = 0;
 	tabs = 0;
 	HeapSize = 0;
 	ContinueToGenerate = true;
+	FP_REG = "((int*)" + regIdentifier + ")[0]";
+	SP_REG = "((int*)" + regIdentifier + ")[1]";
+	TP_REG = "((int*)" + regIdentifier + ")[2]";
+	HP_REG = "((int*)" + regIdentifier + ")[3]";
 }
 
 codeGenerator::~codeGenerator(){
@@ -51,9 +55,9 @@ bool codeGenerator::testOutFile(){
 	else return true;
 }
 
-void codeGenerator::comment(string str, int line){
-	if( line == 1 )	writeLine( "// " + str );
-	else writeLine( "/*\n" + str + "\n*/" );
+void codeGenerator::comment(string str, bool multi_line){
+	if( multi_line )	writeLine( "/*\n" + str + "\n*/" );
+	else writeLine( "// " + str );
 	return;
 }
 
@@ -75,13 +79,17 @@ void codeGenerator::header(){
 	writeLine( "int REG_SIZE = " + to_string(REG_SIZE) + ";\n" );
 
 	//Declare stack
-	writeLine( "void* " + memoryIdentifier + " = malloc( MM_SIZE );" );
-	writeLine( "void* FP = " + memoryIdentifier + ";" );
-	writeLine( "void* SP = " + memoryIdentifier + ";" );
+ 	writeLine( "void* " + memoryIdentifier + " = malloc( MM_SIZE );" );
+	
 
 	//Declare registers
+	comment("Registers\n   Reg[0] = FP\n   Reg[1] = SP\n   Reg[2] = TP\n   Reg[3] = HP", true);
 	writeLine( "void* " + regIdentifier + " = (void*) calloc( REG_SIZE, sizeof(int) );" );
-	writeLine( "goto *(&&Label_0_Begin_Program);" );
+	writeLine( FP_REG + " = 0;" );
+	writeLine( SP_REG + " = 0;" );
+	writeLine( TP_REG + " = 0;" );
+	writeLine( HP_REG + " = MM_SIZE - 1;" );
+	writeLine( "goto Label_0_Begin_Program;" );
 	
 }
 
@@ -118,21 +126,40 @@ string codeGenerator::typeString( int type ){
 	}
 }
 
+void codeGenerator::pushParameter(){
+	return;
+}
+
+void codeGenerator::popParameter(){
+	return;
+}
+
+void codeGenerator::procedureCall( scopeValue calledProcedure, int frameSize, string returnLabel ){
+	string source, destination;
+	int retAddr = calledProcedure.retAddressOffset;
+	int prevFP = calledProcedure.prevFrameOffset;
+	
+	destination = "( " + memoryIdentifier + " + " + FP_REG + " )";
+	// Set previous FP onto the stack, return address should already be placed by procedure call
+	
+	writeLine( FP_REG + " = " + TP_REG + ";" );	
+	// set new edge of frame as SP
+	writeLine( SP_REG + " = " + FP_REG + " + " + to_string(frameSize) + ";" );
+	
+}
+
 void codeGenerator::writeLine( string line ){
 	if( !ShouldGenerate() ) return;
 	else{
 		for( int i = tabs; i > 0; i-- ){
 			fprintf( oFile, "   " );	
-			cout << "   ";
 		}
-		cout << line << endl;
 		fprintf( oFile, "%s\n", line.c_str() );
 		return;
 	}
 }
 
 void codeGenerator::pushStack( string value, char stackID ){
-	cout << "Push: " << stackID << " | " << value << endl;
 	switch( stackID ){
 		case 'L':
 			leftStack.push( value );
@@ -152,7 +179,6 @@ void codeGenerator::pushStack( string value, char stackID ){
 
 
 string codeGenerator::popStack( char stackID ){
-	cout << "Pop: " << stackID << endl;
 	string returnStr;
 	switch( stackID ){
 		case 'L':
@@ -405,10 +431,48 @@ void codeGenerator::NegateTopRegister( int type, int size ){
 	return;
 }
 
+string codeGenerator::mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index){
+	int i;
+	string reg, mem, source, destination;
+	if( isGlobal ){
+		mem = "MM";
+		comment("Global Variable: MM to Reg\n");
+	}
+	else{
+		mem = "FP";
+		comment("Variable: MM to Reg\n");
+	}
+	string memCast = "*(" + typeString(memType) + "*)";
+	string regCast = "(" + typeString(memType) + "*)";
+	int memBytes = typeSize( memType );
+	if( memSize == 0 ) memSize++;
+	
+	int n;
+	if( index < 0){
+		for( i = 0; i < memSize; i++ ){
+			reg = newRegister();
+			pushStack(reg);
+			n = reg.find("[");
+			destination = "(" + regCast + reg.substr(0,n) + ")" + reg.substr(n);
+			source = memCast + "( " + mem + " + " + to_string(index*memBytes + FPoffset) + " )";
+			writeLine(destination + " = " + source + ";");
+		}
+	}
+	else{
+		reg = newRegister();
+		pushStack(reg);
+		n = reg.find("[");
+		destination = "(" + regCast + reg.substr(0,n) + ")" + reg.substr(n);
+		source = memCast + "( " + mem + " + " + to_string(index*memBytes + FPoffset) + " )";
+		writeLine(destination + " = " + source + ";");
+	}
+	
+	return "";
+}
+
 string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal ){
 	int i;
 	string reg, mem, source, destination;
-	comment("regSize: " + to_string(regSize) + " memSize: " + to_string(memSize));
 	if( isGlobal ){
 		mem = "MM";
 		comment("Global Variable: Reg to MM\n");
@@ -419,7 +483,7 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 	}
 
 	string memCast = "*(" + typeString(memType) + "*)";
-	string regCast = "*(" + typeString(regType) + "*)";
+	string regCast = "(" + typeString(regType) + "*)";
 	int memBytes = typeSize( memType );
 	int regBytes = typeSize( regType );
 	if( regSize == 0 ) regSize++;
@@ -429,22 +493,21 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 		reg = popStack();
 		pushStack( reg, 'R' );
 	}
-
+	int m;
 	if( regSize > 1 && regSize == memSize ){
-		cout << "regsize: " << regSize << " memSize: " << memSize << endl;
 		for( i = 0; i < memSize; i++ ){
 			reg = popStack('R');
-			source = regCast + reg;
-			destination = memCast + "( " + mem + to_string(FPoffset + i * memBytes ) + " )";
+			m = reg.find("[");
+			source = "(" + regCast + reg.substr(0,m) + ")" + reg.substr(m);
+			destination = memCast + "( " + mem + " + " + to_string(FPoffset + i * memBytes ) + " )";
 		  writeLine( destination + " = " + source + ";");
 		}
 	}
 	else if ( regSize == 1 ){
-		cout << "regsize: " << regSize << " memSize: " << memSize << endl;
 		source = popStack('R');
 		source = regCast + reg;
 		for( i = 0; i < memSize; i++ ){
-		  destination = memCast + "( " + mem + to_string(FPoffset + i * memBytes ) + " )";
+		  destination = memCast + "( " + mem + " + " +  to_string(FPoffset + i * memBytes ) + " )";
 		  writeLine( destination + " = " + source + ";");
 		}
 	}
@@ -507,16 +570,6 @@ void codeGenerator::callProcedure( string retLabel, scopeValue procValue ){
 	writeLine( "goto *(void*)( FP + " + to_string(sizeof(void*)) + ");" );
 }
 
-void codeGenerator::pushParameter( ){
-	
-	return;
-}
-
-void codeGenerator::popParameter( ){
-
-	return;
-}
-
 // Set address of label to return to after procedure call
 void codeGenerator::setReturnAddress( int FPoffset, string label ){
 	string source, destination;
@@ -541,14 +594,14 @@ void codeGenerator::condBranch( string labelTrue, string labelFalse ){
 	cond = popStack();
 	comment("Conditional branch");
 	// goto true condition
-	writeLine("if( " + cond + " ) goto *( &&" + labelTrue + " );");
+	writeLine("if( " + cond + " ) goto " + labelTrue + ";");
 	// goto else condition
-	if( labelFalse.compare("") != 0 ) writeLine( "goto *( &&" + labelFalse + " );");
+	if( labelFalse.compare("") != 0 ) writeLine( "goto " + labelFalse + ";");
 	return;
 }
 
 void codeGenerator::branch( string label ){
 	comment("Unconditional branch");
-	writeLine( "goto *( &&"+ label + " );");
+	writeLine( "goto "+ label + ";");
 	return;
 }

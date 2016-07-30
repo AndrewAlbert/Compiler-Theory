@@ -38,8 +38,8 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 				case TYPE_CHAR:
 					value.bytes = sizeof(char);
 					break;
-				case TYPE_INTEGER:
 				case TYPE_BOOL:
+				case TYPE_INTEGER:
 					value.bytes = sizeof(int);
 					break;
 				case TYPE_FLOAT:

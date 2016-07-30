@@ -549,7 +549,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list){
 	argEntry.arguments.clear();
 	argEntry.paramType = TYPE_PARAM_NULL;
 
-	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vector
+	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vectorm
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
 		//generator->REGtoMM( argEntry.type, MMoffset, argEntry.size);
@@ -1220,6 +1220,7 @@ bool Parser::Name(int &type, int &size){
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
 					// GEN: MM to REG for specific array element
+					//generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, index = -1);
 					generator->ArrayMMtoREGIndirect( type, nameValue.FPoffset, "" );
 					return true;
 				}
@@ -1229,9 +1230,11 @@ bool Parser::Name(int &type, int &size){
 		}
 		else{
 			// GEN: MM to REG for scalars / full arrays
-			if(size > 0) generator->ArrayMMtoREG( type, nameValue.FPoffset, -1, size );
-			else generator->MMtoREG( type, nameValue.FPoffset );
+			 generator->mm2reg(type, size, nameValue.FPoffset, isGlobal);
+// if(size > 0) ArrayMMtoREG( type, nameValue.FPoffset, -1, size );
+			//else generator->MMtoREG( type, nameValue.FPoffset );
 			return true;
+
 		}
 	}
 	else return false;
