@@ -14,7 +14,7 @@ using namespace std;
 scope::scope(){
 	name = "";
 	// All scopes are procedures / program and therefore allocate the first two memory locations to pointers for return Address and previous frame
-	totalBytes = 2 * sizeof( void* );
+	totalBytes = 2;
 }
 
 scope::~scope(){
@@ -34,7 +34,7 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	if(it != localTable.end()) return false;
 	else{
 		if(value.type != TYPE_PROCEDURE){
-			switch(value.type){
+			/*switch(value.type){
 				case TYPE_CHAR:
 					value.bytes = sizeof(char);
 					break;
@@ -50,11 +50,11 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 					break;
 				default:
 					value.bytes = 0;
-			}
+			}*/
 			value.FPoffset = totalBytes;
 			
-			if( value.size > 0 ) totalBytes += value.size * value.bytes;
-			else totalBytes += value.bytes;
+			if( value.size > 0 ) totalBytes += value.size;
+			else totalBytes += 1;
 		}
 		
 		if(global) globalTable[identifier] = value;

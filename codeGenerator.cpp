@@ -71,19 +71,23 @@ void codeGenerator::header(){
 	//Define the memory space attributes
 	writeLine( "#define MM_SIZE = " + to_string(MM_SIZE) + ";" );
 	writeLine( "#define REG_SIZE = " + to_string(REG_SIZE) + ";\n" );
-	
+	//Create registers and stack
+	writeLine("int MM[MM_SIZE];");
+	writeLine("int iReg[REG_SIZE];");
+	writeLine("float fReg[REG_SIZE];");
+	writeLine("int FP_reg;");
+	writeLine("int SP_reg;");
+	writeLine("int TP_reg;");
+	writeLine("int HP_reg;");
+
 	comment( "Begin program execution" );
 	//Call to main for function
 	writeLine( "int main( void ){" );
 
 	tabInc();
-
-	//Declare stack
- 	writeLine( "void* " + memoryIdentifier + " = malloc( MM_SIZE );" );
 	
 	//Declare registers
 	comment("Registers\n      Reg[0] = FP   Reg[1] = SP   Reg[2] = TP   Reg[3] = HP", true);
-	writeLine( "void* " + regIdentifier + " = (void*) calloc( REG_SIZE, sizeof(int) );" );
 	writeLine( FP_REG + " = 0;" );
 	writeLine( SP_REG + " = 0;" );
 	writeLine( TP_REG + " = 0;" );
@@ -124,20 +128,20 @@ string codeGenerator::typeString( int type ){
 			return "ERROR:";
 	}
 }
-
+/*
 void codeGenerator::pushParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex){
-	Comment("Push parameters onto the call stack")
+	Comment("Push parameters onto the call stack");
 	mm2reg(type, varSize, varOffset, isGlobal, varIndex);
 	reg2mm(type, size, paramOffset, false);
 	return;
 }
 
 void codeGenerator::popParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex){
-	Comment("Pop parameters off of the call stack")
+	Comment("Pop parameters off of the call stack");
 	mm2reg(type, paramSize, paramOffset, false);
 	reg2mm(type, varSize, varOffset, isGlobal, varIndex);
 	return;
-}
+}*/
 
 void codeGenerator::procedureCall( scopeValue calledProcedure, int frameSize, string returnLabel ){
 	string source, destination;

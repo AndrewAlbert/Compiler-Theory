@@ -18,18 +18,33 @@ class codeGenerator
 		int REG_SIZE = 1024*1024;
 		string regIdentifier = "Reg";
 		string memoryIdentifier = "MM";
+		string FP_REG = "FP_reg";
+		string SP_REG = "SP_reg";
+		string HP_REG = "HP_reg";
+		string TP_REG = "TP_reg";
+
 		int HeapSize;
 		bool ContinueToGenerate;
 		bool ShouldGenerate();
-		string FP_REG, SP_REG, HP_REG, TP_REG;
+		
 		//Stack for evaluating expressions
-		int reg_in_use;
+		int ireg_in_use;
+		int freg_in_use;
 		int label_count;
 		stack<string> exprStack;
 		stack<string> rightStack;
 		stack<string> leftStack;
 		
-		
+		struct argument{
+			int paramType;
+			int type;
+			int size;
+			int index;
+			int offset;
+			bool isGlobal;
+		};
+		stack<argument> argListStack;
+
 		//Output file for generated C code
 		FILE* oFile;
 		int tabs;
@@ -91,9 +106,9 @@ class codeGenerator
 
 		// Strings
 		char* AddStringHeap( string str );
-
-		void pushParameter();
-		void popParameter();
+/*
+		void pushParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex);
+		void popParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex);*/
 		void procedureCall( scopeValue calledProcedure, int frameSize, string returnLabel );
 };
 
