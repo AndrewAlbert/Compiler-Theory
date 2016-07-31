@@ -14,7 +14,7 @@ class codeGenerator
 {
 	private:
 		//Memory and Stack space
-		int MM_SIZE = 1024*32;
+		int MM_SIZE = 1024*1024*32;
 		int REG_SIZE = 1024;
 		string iRegId = "iReg";
 		string fRegId = "fReg";
@@ -63,7 +63,7 @@ class codeGenerator
 		//Miscellaneous
 		codeGenerator();
 		~codeGenerator();
-
+		void setSPfromFP( int offset );
 		bool checkArguments();
 		void resetArgument();
 		void setOutputArgument( scopeValue value, bool isGlobal, bool index = false );

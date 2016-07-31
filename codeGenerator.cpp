@@ -70,6 +70,19 @@ void codeGenerator::header(){
 	writeLine( "#define MM_SIZE " + to_string(MM_SIZE));
 	writeLine( "#define REG_SIZE " + to_string(REG_SIZE));
 	
+	comment("Include runtime functions\n");
+	writeLine("extern void handleBool( int val );");
+	writeLine("extern int getBool();");
+	writeLine("extern int getInteger();");
+	writeLine("extern float getFloat();");
+	writeLine("extern int getString();");
+	writeLine("extern char getChar();\n");
+	writeLine("extern void putBool( int val );");
+	writeLine("extern void putInteger( int val );");
+	writeLine("extern void putFloat( float val );");
+	writeLine("extern void putString( char* str_ptr );");
+	writeLine("extern void putChar( char val );");
+
 	//Create registers and stack
 	writeLine("\nint MM[MM_SIZE];");
 	writeLine("int iReg[REG_SIZE];");
@@ -111,6 +124,11 @@ void codeGenerator::tabInc(){
 
 void codeGenerator::tabDec(){
 	if( tabs > 0 )tabs--;
+	return;
+}
+
+void codeGenerator::setSPfromFP( int offset ){
+	writeLine("SP_reg = FP_reg + " + to_string(offset) + ";");
 	return;
 }
 
@@ -261,7 +279,6 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 			result = newRegister(type_result);
 			pushStack( result, 'E', type_result );
 			writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
-			writeLine("printf(\"result: %d\\n\", " + result + ");");
 		}
 	}
 	else if( size_left > 1 ){
@@ -277,7 +294,6 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 			result = newRegister(type_result);
 			pushStack( result, 'E', type_result );
 			writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
-			writeLine("printf(\"result: %d\\n\", " + result + ");");
 		}
 	}
 	else if( size_right > 1 ){
@@ -291,7 +307,6 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 			result = newRegister(type_result);
 			pushStack( result, 'E', type_result );
 			writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
-			writeLine("printf(\"result: %d\\n\", " + result + ");");
 		}
 	}
 	else{
@@ -300,7 +315,6 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 		result = newRegister(type_result);
 		pushStack( result, 'E', type_result );
 		writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
-		writeLine("printf(\"result: %d\\n\", " + result + ");");
 	}
 	cout << "Stack top after expression: " << exprStack.top() << endl;
 	return result;
@@ -403,7 +417,6 @@ string codeGenerator::mm2reg(int memType, int memSize, int FPoffset, bool isGlob
 			
 			if( memType == TYPE_FLOAT) writeLine("memcpy( &" + reg + " , &" + mem + ", sizeof(int) );");
 			else writeLine(reg + " = " + mem + ";");
-			writeLine("printf(\"result: %d\\n\", " + reg + ");");
 		}
 	}
 	else{
@@ -415,7 +428,6 @@ string codeGenerator::mm2reg(int memType, int memSize, int FPoffset, bool isGlob
 		
 		if( memType == TYPE_FLOAT) writeLine("memcpy( &" + reg + " , &" + mem + ", sizeof(int) );");
 		else writeLine(reg + " = " + mem + ";");
-		writeLine("printf(\"result: %d\\n\", " + reg + ");");
 	}
 	
 	return "";
