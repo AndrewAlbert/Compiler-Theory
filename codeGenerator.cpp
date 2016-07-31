@@ -219,7 +219,6 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 	// Invalidate OUT/INOUT arguments since an expresion such as <Name> * 2 has occurred and there is no return value now
 	if( checkArguments() ) invalidateArgument();
 	
-	comment("Evaluate expression: " + op);
 	
 	//Select int registers or float registers
 	if( type_left != type_right ){
@@ -303,7 +302,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 		writeLine( result + " = " + " " + lhs + " " + op + " " + rhs + ";");
 		writeLine("printf(\"result: %d\\n\", " + result + ");");
 	}
-
+	cout << "Stack top after expression: " << exprStack.top() << endl;
 	return result;
 }
 
@@ -341,16 +340,17 @@ void codeGenerator::NotOnRegister( int type, int size ){
 }
 
 string codeGenerator::VALtoREG( string val, int type ){
-	string destination;
+	string reg;
 	comment("Constant Value to Register");
-	destination = newRegister( type );
-	pushStack( destination, 'E', type );
+	cout << "val: " << val << " to " << reg << endl;
+	reg = newRegister( type );
+	pushStack( reg, 'E', type );
 
 	if(type == TYPE_STRING){
 		val = to_string( AddStringHeap( val ) );
 	}
-	writeLine( destination + " = " + val + ";");
-	return destination;
+	writeLine( reg + " = " + val + ";");
+	return reg;
 }
 
 int codeGenerator::AddStringHeap( string str ){
@@ -524,7 +524,6 @@ void codeGenerator::callProcedure( string retLabel, scopeValue procValue ){
 	setReturnAddress(1, retLabel);
 	writeLine( "goto " + procValue.CallLabel + ";" );
 	placeLabel( retLabel );
-	popArguments(2);
 }
 
 // Set address of label to return to after procedure call
@@ -597,17 +596,23 @@ void codeGenerator::invalidateArgument(){
 }
 
 void codeGenerator::pushArgument( int &SPoffset, int paramType){
+	cout << "Push argument:" << endl;
 	savedArgument.paramType = paramType;
 	if( savedArgument.set ) argListStack.push( savedArgument );
 	else{
-		cout << "Pushed unsaved Argument! paramtype:" << paramType << " SPoffset: " << SPoffset << endl;
+		cout << "Pushed unsaved Argument! paramtype:"  << endl;
 		argListStack.push( savedArgument );
 	}
 	if(savedArgument.paramType == TYPE_PARAM_IN || savedArgument.paramType == TYPE_PARAM_INOUT){
 		comment("Push argument.");
-		reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, true );
+		cout << "Expr Top: " << exprStack.top() << " size: " << exprStack.size() << endl;
+		cout << "Saved Argument size: " << savedArgument.size << endl;
+		reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, false, savedArgument.type, true);
 	}
-	cout << "PARAM_TYPE = " << savedArgument.paramType << " SPoffset: " << SPoffset << endl;
+	else{
+		cout << "Expr Top: " << exprStack.top() << " size: " << exprStack.size() << endl;
+		cout << "Saved Argument size: " << savedArgument.size << endl;
+	}
 
 	if( savedArgument.size > 1 ) SPoffset += savedArgument.size;
 	else SPoffset += 1;
@@ -617,6 +622,7 @@ void codeGenerator::pushArgument( int &SPoffset, int paramType){
 
 void codeGenerator::popArguments( int SPoffset ){
 	while( argListStack.size() != 0 ){
+		cout << "\nArg List size: " << argListStack.size() << endl;
 		savedArgument = argListStack.top();
 		argListStack.pop();
 		if( savedArgument.paramType == TYPE_PARAM_OUT || savedArgument.paramType == TYPE_PARAM_INOUT ){
@@ -634,6 +640,7 @@ void codeGenerator::popArguments( int SPoffset ){
 		else{
 			SPoffset -= 1;
 		}
+		cout << "SPoffset = " << SPoffset << endl;
 	}
 	
 	return;

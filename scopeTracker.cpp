@@ -17,12 +17,14 @@ scopeTracker::~scopeTracker(){
 
 void scopeTracker::newScope(){
 	if(curPtr != nullptr){
+		//Add procedure scope
 		tmpPtr = curPtr;
-		curPtr = new scope();
+		curPtr = new scope(false);
 		curPtr->prevScope = tmpPtr;
 	}
 	else{
-		curPtr = new scope();
+		//Add program scope
+		curPtr = new scope(true);
 		curPtr->prevScope = tmpPtr;
 		outermost = curPtr;
 	}
@@ -114,7 +116,7 @@ int scopeTracker::getFrameSize(){
 }
 
 // Set scope name - useful for debugging
-void scopeTracker::ChangeScopeName(string &name){
+void scopeTracker::ChangeScopeName(string name){
 	curPtr->setName(name);
 	return;
 }

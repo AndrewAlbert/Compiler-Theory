@@ -11,10 +11,11 @@ using namespace std;
 /* Set initial scope 'name' will only be valid for the program.
  * Procedures will set their name later. 
  */
-scope::scope(){
+scope::scope(bool programScope){
 	name = "";
-	// All scopes are procedures / program and therefore allocate the first two memory locations to pointers for return Address and previous frame
-	totalBytes = 2;
+	// Procedures allocate the first two bytes of their frame to pointers for stored FP and return address
+	if( programScope ) totalBytes = 0;
+	else totalBytes = 2;
 }
 
 scope::~scope(){

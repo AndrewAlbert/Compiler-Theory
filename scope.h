@@ -22,7 +22,7 @@ class scope
 		string name;
 		
 	public:
-		scope();
+		scope(bool programScope = false);
 		~scope();
 		int totalBytes;
 		

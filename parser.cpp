@@ -221,6 +221,7 @@ bool Parser::ProgramHeader(){
 	if(CheckToken(T_PROGRAM)){
 		string id;
 		if( Identifier(id) ){
+			Scopes->ChangeScopeName("Program " + id);	
 			if(CheckToken(T_IS)) return true;
 			else{
 				ReportError("expected 'is' after program identifier");
@@ -537,6 +538,7 @@ bool Parser::ProcedureCall(string id){
 		// GEN: Set procedure call, then pop arguments after call
 		string returnLabel = generator->newLabel("Procedure_Return_" + id);
 		generator->callProcedure( returnLabel, procedureCall);
+		generator->popArguments(2);
 		return true;
 	}
 	else{
@@ -565,7 +567,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue){
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
 		
-		int offset = 0;
+		int offset = 2;
 		generator->pushArgument(offset, it->paramType);
 		++it;
 
