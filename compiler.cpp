@@ -1,6 +1,6 @@
 #include "scanner.h"
 #include "parser.h"
-//#include "macro.h"
+#include "macro.h"
 #include "token_type.h"
 #include "scopeTracker.h"
 #include <string>

@@ -2,6 +2,7 @@
 #define SCOPEVALUE_H
 
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -21,9 +22,10 @@ struct scopeValue{
 	
 	// Used solely for procedures
 	vector<scopeValue> arguments;
-	int bytes;
 	int prevFrameOffset;
 	int retAddressOffset;
+	string CallLabel;
+	int bytes;
 	
 	// Used solely for variables
 	int paramType;

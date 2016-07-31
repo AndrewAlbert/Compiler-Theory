@@ -14,9 +14,10 @@ class codeGenerator
 {
 	private:
 		//Memory and Stack space
-		int MM_SIZE = 1024*1024*32;
-		int REG_SIZE = 1024*1024;
-		string regIdentifier = "Reg";
+		int MM_SIZE = 1024*32;
+		int REG_SIZE = 1024;
+		string iRegId = "iReg";
+		string fRegId = "fReg";
 		string memoryIdentifier = "MM";
 		string FP_REG = "FP_reg";
 		string SP_REG = "SP_reg";
@@ -39,23 +40,36 @@ class codeGenerator
 			int paramType;
 			int type;
 			int size;
-			int index;
+			bool index;
 			int offset;
 			bool isGlobal;
-		};
+			bool set;
+			bool invalid;
+		} savedArgument;
 		stack<argument> argListStack;
 
 		//Output file for generated C code
 		FILE* oFile;
 		int tabs;
 		void writeLine( string line );
+	
 	public:
 		//Miscellaneous
 		codeGenerator();
 		~codeGenerator();
 
-		void pushStack( string value, char stackID = 'E' );
-		string popStack( char stackID = 'E');
+		bool checkArguments();
+		void resetArgument();
+		void setOutputArgument( scopeValue value, bool isGlobal, bool index = false );
+		void invalidateArgument();
+		void confirmArgument();
+		void pushArgument( int &SPoffset, int paramType = TYPE_PARAM_NULL );
+		void popArguments( int SPoffset );
+		void procedureCall( scopeValue calledProcedure, int frameSize, string returnLabel );
+		void setProcedurePointers(int frameSize);
+		
+		void pushStack( string value, char stackID, int type );
+		string popStack( char stackID, int type);
 
 		void stopCodeGeneration();
 		void tabInc();
@@ -79,18 +93,15 @@ class codeGenerator
 		void NotOnRegister( int type, int size = 0 );
 		void NegateTopRegister( int type, int size = -1 );
 
-		string mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index = -1);
-		string reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal );
+		string VALtoREG( string val, int type );
+		string mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index = -1, bool indirect = false, int indirect_type = TYPE_INTEGER );
+		string reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal, bool indirect = false, int indirect_type = TYPE_INTEGER );
 
 		// MM and Reg operations. Reg < 0 results in grabbing a free register
-		string MMtoREG( int type, int FPoffset, int prevFrames = 0);
-		string VALtoREG( string val, int type );
-		string ArrayMMtoREG( int type, int FPoffset, int index = -1, int size = -1, int previousFrames = 0);
-		string ArrayMMtoREGIndirect( int type, int FPoffset, string index_reg = "", int previousFrames = 0);
-
+		
 		// Register handling
-		string newRegister();
-		string getRegister( int id );
+		string newRegister( int type );
+		string getRegister( int type, int id );
 
 		// Procedures
 		void createProcedure();
@@ -98,7 +109,7 @@ class codeGenerator
 		void createProcedureFooter(string procedureName);
 		void callProcedure( string retLabel, scopeValue procValue );
 		void setReturnAddress( int SPoffset, string label );
-		void ProcedureReturn();
+		void ProcedureReturn( int SPoffset = 0);
 
 		// Branching
 		void condBranch( string labelTrue, string labelFalse = "");
@@ -106,10 +117,6 @@ class codeGenerator
 
 		// Strings
 		char* AddStringHeap( string str );
-/*
-		void pushParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex);
-		void popParameter(int paramOffset, int varOffset, bool isGlobal, int type, int paramSize, int varSize, int varIndex);*/
-		void procedureCall( scopeValue calledProcedure, int frameSize, string returnLabel );
 };
 
 #endif

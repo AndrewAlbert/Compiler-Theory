@@ -70,12 +70,14 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool &globa
 	// Check local symbols of current scope
 	bool found = curPtr->checkSymbol(identifier, false);
 	if(found){
+		global = false;
 		value = curPtr->getSymbol(identifier);
 		return true;
 	}
 	else{
 		found = outermost->checkSymbol(identifier, true);
 		if(found){
+			global = true;
 			value = outermost->getSymbol(identifier);
 			return true; 
 		}
@@ -106,7 +108,7 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool &globa
 	return false;
 }
 
-// Return the size in bytes of the current symbol table. This will give the call fram size needed to place the table's parent procedure with parameters and local variables.
+// Return the size in bytes of the current symbol table. This will give the call frame size needed to place the table's parent procedure with parameters and local variables.
 int scopeTracker::getFrameSize(){
 	return curPtr->totalBytes;
 }

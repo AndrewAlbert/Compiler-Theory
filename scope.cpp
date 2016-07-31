@@ -34,23 +34,6 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	if(it != localTable.end()) return false;
 	else{
 		if(value.type != TYPE_PROCEDURE){
-			/*switch(value.type){
-				case TYPE_CHAR:
-					value.bytes = sizeof(char);
-					break;
-				case TYPE_BOOL:
-				case TYPE_INTEGER:
-					value.bytes = sizeof(int);
-					break;
-				case TYPE_FLOAT:
-					value.bytes = sizeof(float);
-					break;
-				case TYPE_STRING:
-					value.bytes = sizeof(char*);
-					break;
-				default:
-					value.bytes = 0;
-			}*/
 			value.FPoffset = totalBytes;
 			
 			if( value.size > 0 ) totalBytes += value.size;
@@ -131,8 +114,8 @@ void scope::printScope(){
 				break;
 		}
 		
-		// Display frame pointer offset and byte size for variables in the scope
-		if (it->second.type != TYPE_PROCEDURE) cout << "\nFPoffset: " << it->second.FPoffset << " Size (bytes): " << it->second.bytes;
+		// Display frame pointer offset for variables in the scope
+		if (it->second.type != TYPE_PROCEDURE) cout << "\nFPoffset: " << it->second.FPoffset;
 		
 		// Display all parameter types for procedure entries ex: Integer[5] In/Out
 		if(it->second.type == TYPE_PROCEDURE){

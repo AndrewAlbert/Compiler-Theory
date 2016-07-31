@@ -196,6 +196,7 @@ void Parser::declareRunTime(){
 		
 		//add procedure as a global symbol to the outermost scope
 		string symbolID = IDs[i];
+		procVal.CallLabel = "RUNTIME_" + IDs[i];
 		Scopes->addSymbol(symbolID, procVal, true);
 	}
 	return;	
@@ -378,10 +379,10 @@ bool Parser::TypeMark(int &type){
 //<procedure_declaration> ::= <procedure_header><procedure_body>
 bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration, bool global){
 	//Get Procedure Header
-	procDeclaration.retAddressOffset = procDeclaration.bytes;
-	procDeclaration.bytes += sizeof( void* );
+	procDeclaration.retAddressOffset = 0;
+	procDeclaration.bytes += 1;
 	procDeclaration.prevFrameOffset = procDeclaration.bytes;
-	procDeclaration.bytes += sizeof( void* );
+	procDeclaration.bytes += 1;
 	if( ProcedureHeader(id, procDeclaration, global) ){
 		if( ProcedureBody() ) return true;
 		else{
@@ -405,10 +406,10 @@ bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool globa
 		//get procedure identifier and set value to be added to the symbol table
 		if( Identifier(id) ){
 			Scopes->ChangeScopeName(id);
-
-			// GEN: add procedure entry
-			string labelProc = generator->newLabel( "Procedure_" + id );
-			generator->placeLabel( labelProc );
+			
+			// GEN: Get unique label from codeGenerator to add procedure entry
+			procDeclaration.CallLabel = generator->newLabel( "Procedure_" + id );
+			generator->placeLabel( procDeclaration.CallLabel );
 		
 			//get parameter list for the procedure, if it has parameters
 			if( CheckToken(T_LPAREN) ){
@@ -449,6 +450,11 @@ bool Parser::ProcedureBody(){
 			else if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after variable declaration in procedure", true);
 		}
 		
+		// GEN: set the procedure's FP and SP in the program body after all declarations have been made
+		// Each procedure declaration added its bytes to the frame size so this is the max size
+		int frameSize = Scopes->getFrameSize();
+		generator->setProcedurePointers(frameSize);
+		
 		//get statements for procedure body
 		if( CheckToken(T_BEGIN) ){
 			resyncEnabled = true;
@@ -458,10 +464,11 @@ bool Parser::ProcedureBody(){
 				}
 				if( CheckToken(T_END) ){
 
-					// GEN: add end label
+					// GEN: add end label and return
 					string labelEnd;
 					labelEnd = generator->newLabel("Procedure_End");
 					generator->placeLabel( labelEnd );
+					generator->ProcedureReturn();
 
 					if( CheckToken(T_PROCEDURE) ) return true;
 					else{
@@ -475,7 +482,7 @@ bool Parser::ProcedureBody(){
 				}
 				else{
 					ReportFatalError("expected 'end procedure' at end of procedure declaration");
-					return true;
+					return false;
 				}
 			}
 		}
@@ -485,7 +492,7 @@ bool Parser::ProcedureBody(){
 		}
 		else{
 			ReportFatalError("Parser resync failed. Couldn't find a valid declaration or the 'begin reserved keyword in procedure body.");
-			return true;
+			return false;
 		}
 		
 	}
@@ -506,15 +513,16 @@ bool Parser::ProcedureCall(string id){
 	//ensure an id was found in the assignment statement check called right before ProcedureCall
 	if(id == "") return false;
 	
+	bool found = Scopes->checkSymbol(id, procedureCall, isGlobal);
 	//get argument list used in the procedure call
 	if( CheckToken(T_LPAREN) ){
-		ArgumentList(argList);
+		ArgumentList(argList, procedureCall);
 		if( !CheckToken(T_RPAREN) ) ReportLineError("Expected ')' closing procedure call");
 	}
 	else ReportError("expected '(' in procedure call");
 	
 	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
-	if( Scopes->checkSymbol(id, procedureCall, isGlobal) ){
+	if( found ){
 		bool match = true;
 		vector<scopeValue>::iterator it1 = argList.begin();
 		vector<scopeValue>::iterator it2 = procedureCall.arguments.begin();
@@ -526,6 +534,9 @@ bool Parser::ProcedureCall(string id){
 		if( (it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match) ){
 			ReportError("Procedure call argument list does not match declared parameter list.");
 		}
+		// GEN: Set procedure call, then pop arguments after call
+		string returnLabel = generator->newLabel("Procedure_Return_" + id);
+		generator->callProcedure( returnLabel, procedureCall);
 		return true;
 	}
 	else{
@@ -538,7 +549,7 @@ bool Parser::ProcedureCall(string id){
  *	 <expression> , <argument_list>
  *	|<expression>
  */
-bool Parser::ArgumentList(vector<scopeValue> &list){
+bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue){
 	//create vector<scopeValue> where all argument list information will be stored and later returned by the function
 	list.clear();
 
@@ -550,16 +561,21 @@ bool Parser::ArgumentList(vector<scopeValue> &list){
 	argEntry.paramType = TYPE_PARAM_NULL;
 
 	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vectorm
+	vector<scopeValue>::iterator it = procValue.arguments.begin();
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
-		//generator->REGtoMM( argEntry.type, MMoffset, argEntry.size);
+		
+		int offset = 0;
+		generator->pushArgument(offset, it->paramType);
+		++it;
 
 		list.push_back(argEntry);
 		while( CheckToken(T_COMMA) ){
 			if( Expression(argEntry.type, argEntry.size) ){
 				list.push_back(argEntry);
 				// GEN: add arguments from register to correct frame
-				//generator->REGtoMM( argEntry.type, MMoffset, argEntry.size);
+				generator->pushArgument(offset, it->paramType);
+				++it;
 			}
 			else ReportError("expected another argument after ',' in argument list of procedure call");
 		}
@@ -1219,9 +1235,12 @@ bool Parser::Name(int &type, int &size){
 					ReportError("Array index must be a scalar numeric value.");
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
+					// GEN: save the variable <name> values in the generator to be used for arguments
+					generator->setOutputArgument( nameValue, isGlobal, true );
+					
 					// GEN: MM to REG for specific array element
-					//generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, index = -1);
-					generator->ArrayMMtoREGIndirect( type, nameValue.FPoffset, "" );
+					generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, -1, true, type2);
+					
 					return true;
 				}
 				else ReportError("Expected ']' after expression in name.");
@@ -1229,10 +1248,11 @@ bool Parser::Name(int &type, int &size){
 			else ReportFatalError("Expected expression between brackets.");
 		}
 		else{
+			// GEN: save the variable <name> values in the generator to be used for arguments
+			generator->setOutputArgument( nameValue, isGlobal);
+			
 			// GEN: MM to REG for scalars / full arrays
-			 generator->mm2reg(type, size, nameValue.FPoffset, isGlobal);
-// if(size > 0) ArrayMMtoREG( type, nameValue.FPoffset, -1, size );
-			//else generator->MMtoREG( type, nameValue.FPoffset );
+			 generator->mm2reg(type, size, nameValue.FPoffset, isGlobal);				
 			return true;
 
 		}
