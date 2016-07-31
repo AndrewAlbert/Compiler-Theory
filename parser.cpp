@@ -196,7 +196,7 @@ void Parser::declareRunTime(){
 		
 		//add procedure as a global symbol to the outermost scope
 		string symbolID = IDs[i];
-		procVal.CallLabel = "RUNTIME_" + IDs[i];
+		procVal.CallLabel = IDs[i];
 		Scopes->addSymbol(symbolID, procVal, true);
 	}
 	return;	
@@ -1152,20 +1152,20 @@ bool Parser::Factor(int &type, int &size){
 		if( Integer() ){
 			type = TYPE_INTEGER;
 			size = 0;
-			generator->NegateTopRegister( type );
+			generator->NegateTopRegister( type, size );
 			return true;
 		}
 		else if( Float() ){
 			type = TYPE_FLOAT;
 			size = 0;
-			generator->NegateTopRegister( type );
+			generator->NegateTopRegister( type, size );
 			return true;
 		}
 		else if( Name(tempType, tempSize) ){
 			type = tempType;
 			size = tempSize;
 			if( !isNumber(type) ) ReportError(" negation '-' before variable name is valid only for integers and floats.");
-			generator->NegateTopRegister( type );
+			generator->NegateTopRegister( type, size );
 			return true;
 		}
 		else return false;

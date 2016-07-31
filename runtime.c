@@ -31,8 +31,9 @@ float getFloat(){
 
 int getString( char* buffer ){
 	fgets(buffer, 256, stdin);
-	float val = (float)sizeof(char)/sizeof(int);
-	return ( val*(float)strlen(buffer) + 0.5 );
+	//float val = (float)sizeof(char)/sizeof(int);
+	//return ( val*(float)strlen(buffer) + 0.5 );
+	return ( strlen(buffer) + 1);
 }
 
 char getChar(){

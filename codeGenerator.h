@@ -36,6 +36,12 @@ class codeGenerator
 		stack<string> rightStack;
 		stack<string> leftStack;
 		
+		struct entry{
+			int MMlocation;
+			string contents;
+		} stringEntry;
+		queue<entry> string_heap;
+
 		struct argument{
 			int paramType;
 			int type;
@@ -94,8 +100,8 @@ class codeGenerator
 		void NegateTopRegister( int type, int size = -1 );
 
 		string VALtoREG( string val, int type );
-		string mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index = -1, bool indirect = false, int indirect_type = TYPE_INTEGER );
-		string reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal, bool indirect = false, int indirect_type = TYPE_INTEGER );
+		string mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index = -1, bool indirect = false, int indirect_type = TYPE_INTEGER, bool useSP = false );
+		string reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal, bool indirect = false, int indirect_type = TYPE_INTEGER, bool useSP = false );
 
 		// MM and Reg operations. Reg < 0 results in grabbing a free register
 		
@@ -116,7 +122,8 @@ class codeGenerator
 		void branch( string label );
 
 		// Strings
-		char* AddStringHeap( string str );
+		int AddStringHeap( string str );
+		void WriteRuntime();
 };
 
 #endif
