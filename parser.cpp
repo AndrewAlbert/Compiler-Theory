@@ -257,7 +257,7 @@ bool Parser::ProgramBody(){
 		if(CheckToken(T_BEGIN)){
 			// GEN: Place label to procedure entry
 			generator->placeLabel(labelBegin);
-
+			generator->setSPfromFP( Scopes->getFrameSize() );
 			//reset resync for statements
 			resyncEnabled = false;
 			while(true){
@@ -505,28 +505,31 @@ bool Parser::ProcedureBody(){
 bool Parser::ProcedureCall(string id){
 	//argument list whose type and size values will be compared against those declared in the procedure's parameter list
 	vector<scopeValue> argList;
-	
-	//variable to store information about the procedure declaration from the symbol table, if one exists
 	scopeValue procedureCall;
-	
 	bool isGlobal;
+	int offset = 2;
 	
 	//ensure an id was found in the assignment statement check called right before ProcedureCall
-	if(id == "") return false;
+	if( id == "" ) return false;
 	
+	// Get procedure's declared information from scope table
 	bool found = Scopes->checkSymbol(id, procedureCall, isGlobal);
+	
 	//get argument list used in the procedure call
 	if( CheckToken(T_LPAREN) ){
-		ArgumentList(argList, procedureCall);
+		ArgumentList(argList, procedureCall, offset);
 		if( !CheckToken(T_RPAREN) ) ReportLineError("Expected ')' closing procedure call");
 	}
 	else ReportError("expected '(' in procedure call");
 	
-	//check symbol tables for the correct procedure declaration and compare the argument and parameter lists
+	// Compare called argument list against the declared parameter list
 	if( found ){
 		bool match = true;
+		
+		// Iterators to go through the parameter and argument lists
 		vector<scopeValue>::iterator it1 = argList.begin();
 		vector<scopeValue>::iterator it2 = procedureCall.arguments.begin();
+		
 		while( (it1 != argList.end()) && (it2 != procedureCall.arguments.end()) ){
 			if( (it1->type != it2->type) || (it1->size != it2->size) ) match = false;
 			++it1;
@@ -535,10 +538,10 @@ bool Parser::ProcedureCall(string id){
 		if( (it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match) ){
 			ReportError("Procedure call argument list does not match declared parameter list.");
 		}
-		// GEN: Set procedure call, then pop arguments after call
-		string returnLabel = generator->newLabel("Procedure_Return_" + id);
-		generator->callProcedure( returnLabel, procedureCall);
-		generator->popArguments(2);
+		// GEN: Set procedure call, then pop arguments after call and reset the FP and SP
+		generator->callProcedure( procedureCall, id);
+		generator->setSPfromFP( Scopes->getFrameSize() );
+		generator->popArguments( offset );
 		return true;
 	}
 	else{
@@ -551,7 +554,7 @@ bool Parser::ProcedureCall(string id){
  *	 <expression> , <argument_list>
  *	|<expression>
  */
-bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue){
+bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &offset){
 	//create vector<scopeValue> where all argument list information will be stored and later returned by the function
 	list.clear();
 
@@ -567,7 +570,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue){
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
 		
-		int offset = 2;
+		offset = 2;
 		generator->pushArgument(offset, it->paramType);
 		++it;
 
@@ -1238,7 +1241,7 @@ bool Parser::Name(int &type, int &size){
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
 					// GEN: save the variable <name> values in the generator to be used for arguments
-					generator->setOutputArgument( nameValue, isGlobal, true );
+					generator->setOutputArgument( nameValue, isGlobal, -1, true );
 					
 					// GEN: MM to REG for specific array element
 					generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, -1, true, type2);

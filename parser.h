@@ -56,7 +56,7 @@ class Parser
 		// Parameters / Arguments for procedure declarations / calls
 		bool ParameterList(scopeValue &procEntry);
 		bool Parameter(scopeValue &procEntry);
-		bool ArgumentList(vector<scopeValue> &list, scopeValue procValue);
+		bool ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &offset);
 
 		// Statements
 		bool Statement();
