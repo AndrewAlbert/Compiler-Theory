@@ -24,7 +24,7 @@ codeGenerator::~codeGenerator(){
 	if( testOutFile() ) footer();
 	fclose( oFile );
 	//Remove the generated file if there was an error
-	if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove( outputName.c_str() );
+	if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
 }
 
 // Stops code generation from occuring if an error occurs in parsing
@@ -169,6 +169,7 @@ void codeGenerator::writeLine( string line ){
  * only E will increment the register count
  * L/R are only used for evaluating expressions in push/pop order (arrays) */
 void codeGenerator::pushStack( string value, char stackID, int type ){
+	if( !ShouldGenerate() ) return;
 	switch( stackID ){
 		case 'L':
 			leftStack.push( value );
@@ -193,6 +194,7 @@ void codeGenerator::pushStack( string value, char stackID, int type ){
  * only E will decrement the register count
  * L/R are only used for evaluating expressions in push/pop order (arrays) */
 string codeGenerator::popStack( char stackID, int type ){
+	if( !ShouldGenerate() ) return "";
 	string returnStr;
 	switch( stackID ){
 		case 'L':
@@ -228,6 +230,7 @@ string codeGenerator::popStack( char stackID, int type ){
 }
 
 string codeGenerator::evalExpr( string op, int size_left, int size_right, int type_left, int type_right ){
+	if( !ShouldGenerate() ) return "";
 	string lhs, rhs, result;
 	int i, type_result;
 	
@@ -334,18 +337,21 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 
 // Get new floating point / integer register
 string codeGenerator::newRegister( int type ){
+	if( !ShouldGenerate() ) return "";
 	if( type == TYPE_FLOAT ) return getRegister( type, freg_in_use);
 	return getRegister( type, ireg_in_use );
 }
 
 // Get the given register id and type
 string codeGenerator::getRegister( int type, int id ){
+	if( !ShouldGenerate() ) return "";
 	if (type == TYPE_FLOAT) return ( fRegId + "[" + to_string(id) + "]");
 	return ( iRegId + "[" + to_string( id ) + "]");
 }
 
 // Perform logical not ( boolean ) or bitwise not ( integer ) on the top N register on exprStack
 void codeGenerator::NotOnRegister( int type, int size ){
+	if( !ShouldGenerate() ) return;
 	string reg;
 	comment("Not Operation on Register");
 	
@@ -375,6 +381,7 @@ void codeGenerator::NotOnRegister( int type, int size ){
  * String values place the string memory location in the register
  */
 string codeGenerator::VALtoREG( string val, int type ){
+	if( !ShouldGenerate() ) return "";
 	string reg;
 	comment("Constant Value to Register");
 	cout << "val: " << val << " to " << reg << endl;
@@ -390,6 +397,7 @@ string codeGenerator::VALtoREG( string val, int type ){
 
 // Add string to the heap and return the memory location
 int codeGenerator::AddStringHeap( string str ){
+	if( !ShouldGenerate() ) return -1;
 	str.erase(str.end()-1);
 	str.erase(str.begin());
 	HeapSize += ( str.size() + 1);
@@ -402,6 +410,7 @@ int codeGenerator::AddStringHeap( string str ){
 
 // Negate the value of the top N registers ( for integers and float values/variables )
 void codeGenerator::NegateTopRegister( int type, int size ){
+	if( !ShouldGenerate() ) return;
 	string reg;
 	int i;
 	// Ensure size is at least 1 for loops
@@ -420,6 +429,7 @@ void codeGenerator::NegateTopRegister( int type, int size ){
 }
 
 string codeGenerator::mm2reg(int memType, int memSize, int FPoffset, bool isGlobal, int index, bool indirect, int indirect_type, bool useSP){
+	if( !ShouldGenerate() ) return "";
 	string reg, mem, pointer;
 	
 	// Set comment to indicate if this is Global/Local MM to Reg
@@ -470,6 +480,7 @@ string codeGenerator::mm2reg(int memType, int memSize, int FPoffset, bool isGlob
 }
 
 string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize, int FPoffset, bool isGlobal, bool indirect, int indirect_type, bool useSP ){
+	if( !ShouldGenerate() ) return "";
 	int index;
 	string reg, mem, indirect_reg, pointer;
 
@@ -484,36 +495,42 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 		pushStack( reg, 'R', regType );
 	}
 
-	if( indirect ) indirect_reg = popStack('E', regType);
-
-	if( regSize > 1 && regSize == memSize ){
-		for( index = 0; index < memSize; index++ ){
-			reg = popStack('R', regType);
-			if( isGlobal ){
-				mem = "MM[" + to_string(FPoffset + index) + "]";
-				comment("Global Variable: Reg to MM");
-			}
-			else{
-				mem = "MM[" + pointer + " + " + to_string(FPoffset + index) + "]";
-				comment("Variable: Reg to MM");
-			}
-			if( memType == TYPE_FLOAT) writeLine("memcpy( &" + mem + " , &" + reg + ", sizeof(int) );");
-			else writeLine(mem + " = " + reg + ";");
-		}
-	}
-	else if ( regSize == 1 ){
+	if( indirect ){
 		reg = popStack('R', regType);
-		for( index = 0; index < memSize; index++ ){
-			if( isGlobal ){
-				mem = "MM[" + to_string(FPoffset) + "]";
-				comment("Global Variable: Reg to MM");
+		indirect_reg = popStack('E', indirect_type);
+		comment("indirect off " + indirect_reg);
+		writeLine("MM[" + indirect_reg + "] = " + reg + ";" );
+	}
+	else{
+		if( regSize > 1 && regSize == memSize ){
+			for( index = 0; index < memSize; index++ ){
+				reg = popStack('R', regType);
+				if( isGlobal ){
+					mem = "MM[" + to_string(FPoffset + index) + "]";
+					comment("Global Variable: Reg to MM");
+				}
+				else{
+					mem = "MM[" + pointer + " + " + to_string(FPoffset + index) + "]";
+					comment("Variable: Reg to MM");
+				}
+				if( memType == TYPE_FLOAT) writeLine("memcpy( &" + mem + " , &" + reg + ", sizeof(int) );");
+				else writeLine(mem + " = " + reg + ";");
 			}
-			else{
-				mem = "MM[" + pointer + " + " + to_string(FPoffset + index) + "]";
-				comment("Variable: Reg to MM");
+		}
+		else if ( regSize == 1 ){
+			reg = popStack('R', regType);
+			for( index = 0; index < memSize; index++ ){
+				if( isGlobal ){
+					mem = "MM[" + to_string(FPoffset) + "]";
+					comment("Global Variable: Reg to MM");
+				}
+				else{
+					mem = "MM[" + pointer + " + " + to_string(FPoffset + index) + "]";
+					comment("Variable: Reg to MM");
+				}
+				if( memType == TYPE_FLOAT) writeLine("memcpy( &" + mem + " , &" + reg + ", sizeof(int) );");
+				else writeLine(mem + " = " + reg + ";");
 			}
-			if( memType == TYPE_FLOAT) writeLine("memcpy( &" + mem + " , &" + reg + ", sizeof(int) );");
-			else writeLine(mem + " = " + reg + ";");
 		}
 	}
 	return "";
@@ -522,11 +539,13 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 
 // Get a guaranteed unique label string
 string codeGenerator::newLabel( string prefix ){
+	if( !ShouldGenerate() ) return "";
 	return ("Label_" + to_string( label_count++ ) + "_" + prefix);
 }
 
 // Place label in the generated file
 void codeGenerator::placeLabel( string label ){
+	if( !ShouldGenerate() ) return;
 	tabDec();
 	writeLine( "\n" + label + ":" );
 	//writeLine("printf(\"" + label + "\\n\");");
@@ -536,6 +555,7 @@ void codeGenerator::placeLabel( string label ){
 
 // Set the values of SP and FP for a called procedure after the old values have been saved in memory 
 void codeGenerator::setProcedurePointers( int frameSize ){
+	if( !ShouldGenerate() ) return;
 	comment("Set FP and SP using the caller's FP/SP values and the new frame size");
 	writeLine("FP_reg = SP_reg;");
 	writeLine("SP_reg = FP_reg + " + to_string(frameSize) + ";" );
@@ -543,6 +563,7 @@ void codeGenerator::setProcedurePointers( int frameSize ){
 
 // Call the procedure and store the return address of retLabel
 void codeGenerator::callProcedure( scopeValue procValue, string id ){
+	if( !ShouldGenerate() ) return;
 	string retLabel = newLabel("Return_" + id);
 	
 	comment( "Call procedure" );
@@ -554,6 +575,7 @@ void codeGenerator::callProcedure( scopeValue procValue, string id ){
 
 // Return address of instruction is always after the void* to previous frame which is placed at the frame pointer
 void codeGenerator::ProcedureReturn(){
+	if( !ShouldGenerate() ) return;
 	comment( "Procedure return" );
 	writeLine( "TP_reg = FP_reg + 1;" );
 	writeLine( "FP_reg = MM[FP_reg];" );
@@ -563,12 +585,14 @@ void codeGenerator::ProcedureReturn(){
 
 //
 void codeGenerator::setSPfromFP( int offset ){
+	if( !ShouldGenerate() ) return;
 	writeLine("SP_reg = FP_reg + " + to_string(offset) + ";");
 	return;
 }
 
 // Conditional branch to True/False labels
 void codeGenerator::condBranch( string labelTrue, string labelFalse ){
+	if( !ShouldGenerate() ) return;
 	string cond;
 	cond = popStack('E', TYPE_BOOL);
 	comment("Conditional branch");
@@ -581,6 +605,7 @@ void codeGenerator::condBranch( string labelTrue, string labelFalse ){
 
 // Unconditional branch to the given label
 void codeGenerator::branch( string label ){
+	if( !ShouldGenerate() ) return;
 	comment("Unconditional branch");
 	writeLine( "goto "+ label + ";");
 	return;
@@ -588,12 +613,14 @@ void codeGenerator::branch( string label ){
 
 // Check for EvalExpr() to see if it should invalidate savedArgument for OUT and INOUT arguments in procedure call
 bool codeGenerator::checkArguments(){
+	if( !ShouldGenerate() ) return false;
 	if( savedArgument.set && !savedArgument.invalid ) return true;
 	else return false;
 }
 
 // Reset the savedArgument values 
 void codeGenerator::resetArgument(){
+	if( !ShouldGenerate() ) return;
 	savedArgument.paramType = TYPE_PARAM_NULL;
 	savedArgument.type = 0;
 	savedArgument.size = 0;
@@ -608,6 +635,7 @@ void codeGenerator::resetArgument(){
 // Set all savedArgument parameters for Name() call in parser.
 // Does not set the invalid bool parameter to prevent accidental reset
 void codeGenerator::setOutputArgument( scopeValue value, bool isGlobal, int index, bool indirect ){
+	if( !ShouldGenerate() ) return;
 	savedArgument.paramType = value.paramType;
 	savedArgument.type = value.type;
 	savedArgument.size = value.size;
@@ -621,10 +649,12 @@ void codeGenerator::setOutputArgument( scopeValue value, bool isGlobal, int inde
 // Set the invalid value of savedArgument to indicate for OUT arguments that do not have a valid memory location
 // Happens if an output argument is declared as an expression such as : ( A + 5 )
 void codeGenerator::invalidateArgument(){
+	if( !ShouldGenerate() ) return;
 	savedArgument.invalid = true;
 }
 
 void codeGenerator::pushArgument( int &SPoffset, int paramType){
+	if( !ShouldGenerate() ) return;
 	cout << "Push argument:" << endl;
 	savedArgument.paramType = paramType;
 	if( savedArgument.paramType == TYPE_PARAM_IN || savedArgument.paramType == TYPE_PARAM_INOUT ){
@@ -649,6 +679,7 @@ void codeGenerator::pushArgument( int &SPoffset, int paramType){
 
 // Pop all the arguments from procedure call and place OUT argument values into their correct memory location
 void codeGenerator::popArguments(int SPoffset){
+	if( !ShouldGenerate() ) return;
 	// Decrement offset by one since it currently represents the location to place the next argument (if one exists)	
 	SPoffset -= 1;
 	while( argListStack.size() != 0 ){
@@ -678,6 +709,7 @@ void codeGenerator::popArguments(int SPoffset){
 
 // Write the inline code for runtime support that calls the runtime.c functions
 void codeGenerator::WriteRuntime(){
+	if( !ShouldGenerate() ) return;
 	fprintf( oFile, "\nGETBOOL:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");

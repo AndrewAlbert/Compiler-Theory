@@ -55,5 +55,8 @@ int main(int argc, char **argv){
 		gen->attachOutputFile( (filename) + ".c" );
 		Parser parser(token, scanner, scopes, gen);
 	}
+	delete scanner;
+	delete scopes;
+	delete gen;
 	return 0;
 }

@@ -58,6 +58,7 @@ Parser::~Parser(){
 
 //Report error and terminate parsing.
 void Parser::ReportFatalError(string message){
+	generator->stopCodeGeneration();
 	error_queue.push("Fatal Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii);
 	error = true;
 	DisplayErrorQueue();
@@ -66,6 +67,7 @@ void Parser::ReportFatalError(string message){
 
 //report error line number and desriptive message. Get tokens until the next line or a ';' is found.
 void Parser::ReportLineError(string message, bool skipSemicolon = true){
+	generator->stopCodeGeneration();
 	error = true;
 	lineError = true;
 	
@@ -107,6 +109,7 @@ void Parser::ReportLineError(string message, bool skipSemicolon = true){
 
 //report error line number and descriptive message
 void Parser::ReportError(string message){
+	generator->stopCodeGeneration();
 	error_queue.push("Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii);
 	error = true;
 	return;
@@ -212,7 +215,7 @@ void Parser::Program(){
 	if( CheckToken(T_EOF) ) Scopes->exitScope(); //exit program scope once program ends
 		
 	else ReportError("Found some tokens remaining in file when end of program was expected");
-	generator->footer();
+	//generator->footer();
 	return;
 }
 
@@ -646,8 +649,10 @@ bool Parser::Assignment(string &id){
 	bool found;
 	scopeValue destinationValue;
 	bool isGlobal;
+	bool indirect;
+	int indirect_type;
 	//Determine destination if this is a valid assignment statement
-	if( !Destination(id, dType, dSize, destinationValue, found, isGlobal) ) return false;
+	if( !Destination(id, dType, dSize, destinationValue, found, isGlobal, indirect, indirect_type) ) return false;
 	
 	//get assignment expression
 	if( CheckToken(T_ASSIGNMENT) ){
@@ -658,7 +663,7 @@ bool Parser::Assignment(string &id){
 			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
 		// GEN: Move expression result to MM
-		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal);
+		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal, indirect, indirect_type );
 
 		return true;
 	}
@@ -672,7 +677,7 @@ bool Parser::Assignment(string &id){
  * Returns the destination's identifier (will be used in procedure call if assignment fails).
  * Returns destination's type and size for comparison with what is being assigned to the destination. 
  */
-bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found, bool &isGlobal){
+bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destinationValue, bool &found, bool &isGlobal, bool &indirect, int &indirect_type){
 	//Variable to hold destination symbol's information from the nested scope tables
 	int type, size;
 
@@ -692,8 +697,10 @@ bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destina
 		}
 		
 		if(CheckToken(T_LBRACKET)){
+			indirect = true;
 			if( Expression(type, size) ){
 				//ensure array index is a single numeric value
+				indirect_type = type;
 				if( size != 0 || ( (type != TYPE_FLOAT) && ( type != TYPE_INTEGER) && ( type != TYPE_BOOL) ) ) {
 					ReportError("Destination array's index must be a scalar numeric value");
 				}
@@ -712,7 +719,10 @@ bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destina
 				return true;
 			}
 		}
-		else return true;
+		else{
+			indirect = false;
+			return true;
+		}
 	}
 	else return false;
 }
