@@ -94,6 +94,7 @@ class Parser
 		bool Identifier(string &id);
 		bool isNumber(int &type_value);
 		
+		bool outArg;
 	public:		
 		// Pointers to the other major components of the compiler which are called / checked by the parser
 		token_type* token;

@@ -32,6 +32,7 @@ Parser::Parser(token_type* tokenPtr, Scanner* scannerPtr, scopeTracker* scopes, 
 	textLine = "";
 	currentLine = 0;
 	lineError = false;
+	outArg = false;
 	
 	//Start program parsing
 	Program();
@@ -54,6 +55,7 @@ Parser::~Parser(){
 	scanner = nullptr;
 	Scopes = nullptr;
 	generator = nullptr;
+	outArg = false;
 }
 
 //Report error and terminate parsing.
@@ -570,15 +572,25 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 
 	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vectorm
 	vector<scopeValue>::iterator it = procValue.arguments.begin();
+	if( it != procValue.arguments.end() ){
+		if( it->paramType == TYPE_PARAM_OUT) outArg = true;
+	}
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
 		
 		offset = 2;
 		generator->pushArgument(offset, it->paramType);
 		++it;
-
+		
 		list.push_back(argEntry);
 		while( CheckToken(T_COMMA) ){
+			if( it != procValue.arguments.end() ){
+				if( it->paramType == TYPE_PARAM_OUT ){
+					outArg = true;
+					cout << it->paramType << endl;
+				}
+				else outArg = false;
+			}
 			if( Expression(argEntry.type, argEntry.size) ){
 				list.push_back(argEntry);
 				// GEN: add arguments from register to correct frame
@@ -588,6 +600,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 			else ReportError("expected another argument after ',' in argument list of procedure call");
 		}
 	}
+	outArg = false;
 	return true;
 }
 
@@ -663,8 +676,9 @@ bool Parser::Assignment(string &id){
 			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
 		// GEN: Move expression result to MM
+		cout << "Reg to MM" << endl;
 		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal, indirect, indirect_type );
-
+		cout << "Done Reg to MM" << endl;
 		return true;
 	}
 	else{
@@ -1251,10 +1265,10 @@ bool Parser::Name(int &type, int &size){
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
 					// GEN: save the variable <name> values in the generator to be used for arguments
-					generator->setOutputArgument( nameValue, isGlobal, -1, true );
+					generator->setOutputArgument( nameValue, isGlobal, 0, true );
 					
 					// GEN: MM to REG for specific array element
-					generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, -1, true, type2);
+					if( !outArg ) generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, -1, true, type2);
 					
 					return true;
 				}
@@ -1267,7 +1281,7 @@ bool Parser::Name(int &type, int &size){
 			generator->setOutputArgument( nameValue, isGlobal);
 			
 			// GEN: MM to REG for scalars / full arrays
-			 generator->mm2reg(type, size, nameValue.FPoffset, isGlobal);				
+			 if( !outArg ) generator->mm2reg(type, size, nameValue.FPoffset, isGlobal);				
 			return true;
 
 		}

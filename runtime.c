@@ -30,7 +30,7 @@ float getFloat(){
 }
 
 int getString( char* buffer ){
-	fgets(buffer, 256, stdin);
+	fgets(buffer, sizeof(buffer), stdin);
 	//float val = (float)sizeof(char)/sizeof(int);
 	//return ( val*(float)strlen(buffer) + 0.5 );
 	return ( strlen(buffer) + 1);
@@ -58,8 +58,8 @@ void putFloat( float val ){
 	return;
 }
 
-void putString( char* str_ptr ){
-	printf("%s", str_ptr);
+void putString( char* val ){
+	printf("%s", val);
 	return; 
 }
 

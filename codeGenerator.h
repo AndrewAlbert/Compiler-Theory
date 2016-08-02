@@ -7,6 +7,7 @@
 #include <cstdio>
 #include "macro.h"
 #include "scopeValue.h"
+#include <map>
 
 using namespace std;
 
@@ -24,6 +25,12 @@ class codeGenerator
 		string SP_REG = "SP_reg";
 		string HP_REG = "HP_reg";
 		string TP_REG = "TP_reg";
+
+		int call_count;
+		map<int,string> branchTable;
+		string newReturnLabel( string prefix );
+		bool buildBranchTable();
+		void createEntry( int lPos, int uPos );
 
 		bool ContinueToGenerate;
 		bool ShouldGenerate();

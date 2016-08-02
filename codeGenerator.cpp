@@ -6,6 +6,7 @@
 #include <string>
 #include <cstdio>
 #include <iostream>
+#include <map>
 
 using namespace std;
 
@@ -18,13 +19,20 @@ codeGenerator::codeGenerator(){
 	ContinueToGenerate = true;
 	HeapSize = MM_SIZE - 1;
 	outputName = "";
+	call_count = 0;
 }
 
 codeGenerator::~codeGenerator(){
-	if( testOutFile() ) footer();
-	fclose( oFile );
+	if( testOutFile() ){
+		buildBranchTable();
+		footer();
+		fclose( oFile );
+	}
+	else{
+		fclose( oFile );
 	//Remove the generated file if there was an error
-	if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
+		if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
+	}
 }
 
 // Stops code generation from occuring if an error occurs in parsing
@@ -386,12 +394,14 @@ string codeGenerator::VALtoREG( string val, int type ){
 	comment("Constant Value to Register");
 	cout << "val: " << val << " to " << reg << endl;
 	reg = newRegister( type );
+	cout << "Val to reg " << type << endl;
 	pushStack( reg, 'E', type );
 
 	if(type == TYPE_STRING){
 		val = to_string( AddStringHeap( val ) );
 	}
 	writeLine( reg + " = " + val + ";");
+	cout << "Done val to reg" << endl;
 	return reg;
 }
 
@@ -502,16 +512,17 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 		writeLine("MM[" + indirect_reg + "] = " + reg + ";" );
 	}
 	else{
+		if( isGlobal ) comment("Global Variable: Reg to MM");
+		else comment("Variable: Reg to MM");
+		
 		if( regSize > 1 && regSize == memSize ){
 			for( index = 0; index < memSize; index++ ){
 				reg = popStack('R', regType);
 				if( isGlobal ){
 					mem = "MM[" + to_string(FPoffset + index) + "]";
-					comment("Global Variable: Reg to MM");
 				}
 				else{
 					mem = "MM[" + pointer + " + " + to_string(FPoffset + index) + "]";
-					comment("Variable: Reg to MM");
 				}
 				if( memType == TYPE_FLOAT) writeLine("memcpy( &" + mem + " , &" + reg + ", sizeof(int) );");
 				else writeLine(mem + " = " + reg + ";");
@@ -521,12 +532,10 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 			reg = popStack('R', regType);
 			for( index = 0; index < memSize; index++ ){
 				if( isGlobal ){
-					mem = "MM[" + to_string(FPoffset) + "]";
-					comment("Global Variable: Reg to MM");
+					mem = "MM[" + to_string(FPoffset + index) + "]";
 				}
 				else{
 					mem = "MM[" + pointer + " + " + to_string(FPoffset + index) + "]";
-					comment("Variable: Reg to MM");
 				}
 				if( memType == TYPE_FLOAT) writeLine("memcpy( &" + mem + " , &" + reg + ", sizeof(int) );");
 				else writeLine(mem + " = " + reg + ";");
@@ -564,12 +573,13 @@ void codeGenerator::setProcedurePointers( int frameSize ){
 // Call the procedure and store the return address of retLabel
 void codeGenerator::callProcedure( scopeValue procValue, string id ){
 	if( !ShouldGenerate() ) return;
-	string retLabel = newLabel("Return_" + id);
+	
 	
 	comment( "Call procedure" );
 	writeLine( "MM[SP_reg] = FP_reg;" );
-	writeLine( "MM[SP_reg + 1] = (int)&&" + retLabel + ";" );
+	writeLine( "MM[SP_reg + 1] = " + to_string(call_count) + ";" );
 	writeLine( "goto " + procValue.CallLabel + ";" );
+	string retLabel = newReturnLabel(id);
 	placeLabel( retLabel );
 }
 
@@ -577,9 +587,9 @@ void codeGenerator::callProcedure( scopeValue procValue, string id ){
 void codeGenerator::ProcedureReturn(){
 	if( !ShouldGenerate() ) return;
 	comment( "Procedure return" );
-	writeLine( "TP_reg = FP_reg + 1;" );
+	writeLine( "TP_reg = MM[FP_reg + 1];" );
 	writeLine( "FP_reg = MM[FP_reg];" );
-	writeLine( "goto *(void*)MM[TP_reg];" );
+	writeLine( "goto BRANCH_TABLE;" );
 	return;
 }
 
@@ -665,10 +675,22 @@ void codeGenerator::pushArgument( int &SPoffset, int paramType){
 
 	if(savedArgument.paramType == TYPE_PARAM_IN || savedArgument.paramType == TYPE_PARAM_INOUT){
 		comment("Push argument");
-		reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, false, savedArgument.type, true);
+		cout << "Reg2MM" << endl;
+		if( savedArgument.index < 0 ){
+			reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, savedArgument.indirect, TYPE_INTEGER, true);
+		}
+		else{
+			reg2mm(savedArgument.type, savedArgument.type, 1, savedArgument.size, SPoffset, savedArgument.isGlobal, savedArgument.indirect, TYPE_INTEGER, true);
+		}
+		cout << "Indirect: " << savedArgument.indirect << endl;
+		cout << "Saved size: " << savedArgument.size << endl;
+		cout << "Saved type: " << savedArgument.type << endl;
+		cout << "SP offset: " << SPoffset << endl;
+		cout << "isGlobal: " << savedArgument.isGlobal << endl;
 	}
 	else{
-		popStack('E',savedArgument.type);
+		//cout << "pop PARAM_OUT" << endl;
+		//popStack('E',savedArgument.type);
 	}
 
 	if( savedArgument.size > 1 ) SPoffset += savedArgument.size;
@@ -681,11 +703,20 @@ void codeGenerator::pushArgument( int &SPoffset, int paramType){
 void codeGenerator::popArguments(int SPoffset){
 	if( !ShouldGenerate() ) return;
 	// Decrement offset by one since it currently represents the location to place the next argument (if one exists)	
-	SPoffset -= 1;
+	//SPoffset -= 1;
 	while( argListStack.size() != 0 ){
 		cout << "\nArg List size: " << argListStack.size() << endl;
 		savedArgument = argListStack.top();
 		argListStack.pop();
+		// TODO: Check this, may be incorrect
+		if( savedArgument.index < 0 && savedArgument.size > 1 && !savedArgument.indirect ){
+			SPoffset -= savedArgument.size;
+		}
+		else{
+			SPoffset -= 1;
+		}
+		cout << "SPoffset = " << SPoffset << endl;
+
 		if( savedArgument.paramType == TYPE_PARAM_OUT || savedArgument.paramType == TYPE_PARAM_INOUT ){
 			if( savedArgument.invalid ) cout << "invalid output argument, code generation will continue" << endl;
 			else{
@@ -695,13 +726,13 @@ void codeGenerator::popArguments(int SPoffset){
 				reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, savedArgument.offset, savedArgument.isGlobal);
 			}
 		}
-		if( savedArgument.index < 0 && savedArgument.size > 1 ){
+		/*if( savedArgument.index < 0 && savedArgument.size > 1 ){
 			SPoffset -= savedArgument.size;
 		}
 		else{
 			SPoffset -= 1;
 		}
-		cout << "SPoffset = " << SPoffset << endl;
+		cout << "SPoffset = " << SPoffset << endl;*/
 	}
 	
 	return;
@@ -715,36 +746,36 @@ void codeGenerator::WriteRuntime(){
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = getBool();\n");
 	fprintf( oFile, "   MM[FP_reg + 2] = iReg[0];\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nGETINTEGER:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = getInteger();\n");
 	fprintf( oFile, "   MM[FP_reg + 2] = iReg[0];\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nGETCHAR:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = getChar();\n");
 	fprintf( oFile, "   MM[FP_reg + 2] = iReg[0];\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nGETFLOAT:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   fReg[0] = getFloat();\n");
 	fprintf( oFile, "   memcpy(&MM[FP_reg + 2], &iReg[0], sizeof(int) );\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nGETSTRING:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
@@ -752,52 +783,89 @@ void codeGenerator::WriteRuntime(){
 	fprintf( oFile, "   iReg[0] = getString();\n");
 	fprintf( oFile, "   HP_reg = iReg[0];\n");
 	fprintf( oFile, "   MM[FP_reg + 2] = iReg[0];\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nPUTBOOL:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = MM[FP_reg + 2];\n");
 	fprintf( oFile, "   putBool(iReg[0]);\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nPUTINTEGER:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = MM[FP_reg + 2];\n");
 	fprintf( oFile, "   putInteger(iReg[0]);\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nPUTCHAR:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = MM[FP_reg + 2];\n");
 	fprintf( oFile, "   putChar(iReg[0]);\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nPUTFLOAT:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   memcpy(&fReg[0],&MM[FP_reg + 2],sizeof(int));\n");
 	fprintf( oFile, "   putFloat(fReg[0]);\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 
 	fprintf( oFile, "\nPUTSTRING:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = MM[FP_reg + 2];\n");
 	fprintf( oFile, "   putInteger(iReg[0]);\n");
-	fprintf( oFile, "   TP_reg = FP_reg + 1;\n");
+	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
-	fprintf( oFile, "   goto *(void*)MM[TP_reg];\n");
+	fprintf( oFile, "   goto BRANCH_TABLE;\n");
 }
+
+string codeGenerator::newReturnLabel( string prefix ){
+	string label = "Label_Return_" + to_string(call_count) + prefix;
+	branchTable[call_count] = label;
+	call_count++;
+	return label;
+}
+
+bool codeGenerator::buildBranchTable(){
+	fprintf( oFile, "\ngoto PROGRAM_END;\n" );
+	//map<int, string>::iterator it = branchTable.cbegin();
+	fprintf( oFile, "\nBRANCH_TABLE:\n" );
+	if( !branchTable.empty() ){
+		createEntry(0, branchTable.size() - 1);
+	}
+	fprintf( oFile, "\nPROGRAM_END:\n" );
+	return true;
+}
+
+void codeGenerator::createEntry( int lPos, int uPos ){
+	if( lPos == uPos ){
+		fprintf( oFile, "goto %s;\n", (branchTable[lPos]).c_str() );
+	}
+	else{
+		int mPos = ( lPos + uPos )/2;
+		int key = mPos;
+		fprintf( oFile, "iReg[0] = %d;\n", key );
+		fprintf( oFile, "iReg[0] = TP_reg > iReg[0];\n" );
+		fprintf( oFile, "if( iReg[0] ){\n" );
+		createEntry( mPos + 1, uPos );
+		fprintf( oFile, "}\n" );
+		comment("Else TP <= iReg[0]");
+		createEntry( lPos, mPos );
+		return;
+	}
+}
+
