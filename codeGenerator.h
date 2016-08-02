@@ -143,6 +143,7 @@ class codeGenerator
 
 		// Strings
 		int AddStringHeap( string str );
+		void buildHeap();
 		void WriteRuntime();
 };
 

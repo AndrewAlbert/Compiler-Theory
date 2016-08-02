@@ -25,6 +25,8 @@ codeGenerator::codeGenerator(){
 codeGenerator::~codeGenerator(){
 	if( testOutFile() ){
 		buildBranchTable();
+		buildHeap();
+		fprintf( oFile, "\nPROGRAM_END:\n" );
 		footer();
 		fclose( oFile );
 	}
@@ -118,7 +120,7 @@ void codeGenerator::header(){
 	writeLine( SP_REG + " = 0;" );
 	writeLine( TP_REG + " = 0;" );
 	writeLine( HP_REG + " = MM_SIZE - 1;" );
-	writeLine( "goto Label_0_Begin_Program;\n" );
+	writeLine( "goto BUILD_HEAP;\n" );
 	
 	// Add the runtime function inline code
 	WriteRuntime();
@@ -408,14 +410,24 @@ string codeGenerator::VALtoREG( string val, int type ){
 // Add string to the heap and return the memory location
 int codeGenerator::AddStringHeap( string str ){
 	if( !ShouldGenerate() ) return -1;
-	str.erase(str.end()-1);
-	str.erase(str.begin());
 	HeapSize += ( str.size() + 1);
 	cout << "string: " << str << " size: " << str.size() << endl;
 	stringEntry.MMlocation = HeapSize;
 	stringEntry.contents = str;
 	string_heap.push(stringEntry);
 	return HeapSize;
+}
+
+void codeGenerator::buildHeap(){
+	fprintf( oFile, "\nBUILD_HEAP:\n" );
+	while( string_heap.size() > 0 ){
+		stringEntry = string_heap.front();
+		string_heap.pop();
+		fprintf( oFile, "strcpy((char*)&MM[%d], %s);\n", stringEntry.MMlocation, stringEntry.contents.c_str() );
+		fprintf( oFile, "TP_reg = %d;\n", stringEntry.MMlocation );
+	}
+	writeLine( "goto Label_0_Begin_Program;\n" );
+	return;
 }
 
 // Negate the value of the top N registers ( for integers and float values/variables )
@@ -780,9 +792,10 @@ void codeGenerator::WriteRuntime(){
 	fprintf( oFile, "\nGETSTRING:\n");
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
-	fprintf( oFile, "   iReg[0] = getString();\n");
-	fprintf( oFile, "   HP_reg = iReg[0];\n");
-	fprintf( oFile, "   MM[FP_reg + 2] = iReg[0];\n");
+	fprintf( oFile, "   iReg[0] = getString(buffer);\n");
+	fprintf( oFile, "   HP_reg = HP_reg - iReg[0];\n");
+	fprintf( oFile, "   MM[FP_reg + 2] = HP_reg;\n");
+	fprintf( oFile, "   strcpy((char*)&MM[HP_reg], buffer);\n");
 	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
 	fprintf( oFile, "   goto BRANCH_TABLE;\n");
@@ -827,7 +840,7 @@ void codeGenerator::WriteRuntime(){
 	fprintf( oFile, "   FP_reg = SP_reg;\n");
 	fprintf( oFile, "   SP_reg = FP_reg + 3;\n");
 	fprintf( oFile, "   iReg[0] = MM[FP_reg + 2];\n");
-	fprintf( oFile, "   putInteger(iReg[0]);\n");
+	fprintf( oFile, "   putString((char*)&MM[iReg[0]]);\n");
 	fprintf( oFile, "   TP_reg = MM[FP_reg + 1];\n");
 	fprintf( oFile, "   FP_reg = MM[FP_reg];\n");
 	fprintf( oFile, "   goto BRANCH_TABLE;\n");
@@ -847,7 +860,6 @@ bool codeGenerator::buildBranchTable(){
 	if( !branchTable.empty() ){
 		createEntry(0, branchTable.size() - 1);
 	}
-	fprintf( oFile, "\nPROGRAM_END:\n" );
 	return true;
 }
 
