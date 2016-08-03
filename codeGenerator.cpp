@@ -392,10 +392,18 @@ void codeGenerator::NotOnRegister( int type, int size ){
  */
 string codeGenerator::VALtoREG( string val, int type ){
 	if( !ShouldGenerate() ) return "";
+	//?setOutputArgument( nameValue, isGlobal, 0, true );
+	savedArgument.size = 0;
+	savedArgument.type = type;
+	savedArgument.indirect = false;
+	savedArgument.set = true;
+	savedArgument.isGlobal = false;
+	
 	string reg;
 	comment("Constant Value to Register");
-	cout << "val: " << val << " to " << reg << endl;
 	reg = newRegister( type );
+	cout << "val: " << val << " to " << reg << endl;
+	
 	cout << "Val to reg " << type << endl;
 	pushStack( reg, 'E', type );
 
@@ -505,7 +513,8 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 	if( !ShouldGenerate() ) return "";
 	int index;
 	string reg, mem, indirect_reg, pointer;
-
+	//bool isArray = false;
+	//if(dSize > 0) isArray = true;
 	if( useSP ) pointer = "SP_reg";
 	else pointer = "FP_reg";
 	
@@ -513,15 +522,20 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 	if( memSize == 0 ) memSize++;
 	
 	for( index = 0; index < regSize; index++ ){
+		cout << "index " << index << " / regSize" << regSize<<endl;
 		reg = popStack('E', regType);
 		pushStack( reg, 'R', regType );
 	}
 
+	
 	if( indirect ){
+		if(savedArgument.set == false) cout << "not a saved argument" << endl;
+		cout << "indirect"<<endl;
 		reg = popStack('R', regType);
 		indirect_reg = popStack('E', indirect_type);
 		comment("indirect off " + indirect_reg);
-		writeLine("MM[" + indirect_reg + "] = " + reg + ";" );
+		writeLine("TP_reg = " + pointer + " + " + to_string(FPoffset) + ";" );
+		writeLine("MM[TP_reg + " + indirect_reg + "] = " + reg + ";" );
 	}
 	else{
 		if( isGlobal ) comment("Global Variable: Reg to MM");
@@ -648,6 +662,7 @@ void codeGenerator::resetArgument(){
 	savedArgument.size = 0;
 	savedArgument.index = -1;
 	savedArgument.offset = -1;
+	savedArgument.indirect = false;
 	savedArgument.isGlobal = false;
 	savedArgument.set = false;
 	savedArgument.invalid = false;
@@ -666,6 +681,7 @@ void codeGenerator::setOutputArgument( scopeValue value, bool isGlobal, int inde
 	savedArgument.offset = value.FPoffset;
 	savedArgument.isGlobal = isGlobal;
 	savedArgument.set = true;
+	cout << "Set Output Argument\n\ttype: " << savedArgument.type <<"\n\tsize: " << savedArgument.size << "\n\tindirect: " << savedArgument.indirect << endl;
 }
 
 // Set the invalid value of savedArgument to indicate for OUT arguments that do not have a valid memory location
@@ -683,16 +699,17 @@ void codeGenerator::pushArgument( int &SPoffset, int paramType){
 		argListStack.push( savedArgument );
 		if( !savedArgument.set ) cout << "Pushed unsaved Argument! paramtype:"  << endl;
 	}
-	else if( savedArgument.paramType = TYPE_PARAM_OUT) argListStack.push( savedArgument );
+	else if( savedArgument.paramType == TYPE_PARAM_OUT) argListStack.push( savedArgument );
 
 	if(savedArgument.paramType == TYPE_PARAM_IN || savedArgument.paramType == TYPE_PARAM_INOUT){
 		comment("Push argument");
 		cout << "Reg2MM" << endl;
 		if( savedArgument.index < 0 ){
-			reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, savedArgument.indirect, TYPE_INTEGER, true);
+			cout << "Index < 0" << endl;
+			reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, false, TYPE_INTEGER, true);
 		}
 		else{
-			reg2mm(savedArgument.type, savedArgument.type, 1, savedArgument.size, SPoffset, savedArgument.isGlobal, savedArgument.indirect, TYPE_INTEGER, true);
+			reg2mm(savedArgument.type, savedArgument.type, 1, 1, SPoffset, savedArgument.isGlobal, false, TYPE_INTEGER, true);
 		}
 		cout << "Indirect: " << savedArgument.indirect << endl;
 		cout << "Saved size: " << savedArgument.size << endl;

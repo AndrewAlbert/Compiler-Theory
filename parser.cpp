@@ -189,8 +189,7 @@ void Parser::declareRunTime(){
 		//clear parameter list
 		procVal.arguments.clear();
 		
-		if(Types[i] == TYPE_STRING) inputVal.size = STRING_SIZE;
-		else inputVal.size = 0;
+		inputVal.size = 0;
 
 		//get new parameter values
 		inputVal.type = Types[i];
@@ -575,6 +574,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 	if( it != procValue.arguments.end() ){
 		if( it->paramType == TYPE_PARAM_OUT) outArg = true;
 	}
+	//generator->resetArgument();
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
 		
@@ -584,6 +584,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 		
 		list.push_back(argEntry);
 		while( CheckToken(T_COMMA) ){
+			//generator->resetArgument();
 			if( it != procValue.arguments.end() ){
 				if( it->paramType == TYPE_PARAM_OUT ){
 					outArg = true;
@@ -676,7 +677,11 @@ bool Parser::Assignment(string &id){
 			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
 		// GEN: Move expression result to MM
-		cout << "Reg to MM" << endl;
+		cout << "Reg to MM assignment" << endl;
+		cout << "\ttype: " << type << endl;
+		cout << "\tdtype: " << dType << endl;
+		cout << "\tsize: " << size << endl;
+		cout << "\tdsize: " << dSize << endl;
 		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal, indirect, indirect_type );
 		cout << "Done Reg to MM" << endl;
 		return true;
