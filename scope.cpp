@@ -11,8 +11,11 @@ using namespace std;
 /* Set initial scope 'name' will only be valid for the program.
  * Procedures will set their name later. 
  */
-scope::scope(){
+scope::scope(bool programScope){
 	name = "";
+	// Procedures allocate the first two bytes of their frame to pointers for stored FP and return address
+	if( programScope ) totalBytes = 0;
+	else totalBytes = 2;
 }
 
 scope::~scope(){
@@ -31,6 +34,13 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	it = localTable.find(identifier);
 	if(it != localTable.end()) return false;
 	else{
+		if(value.type != TYPE_PROCEDURE){
+			value.FPoffset = totalBytes;
+			
+			if( value.size > 0 ) totalBytes += value.size;
+			else totalBytes += 1;
+		}
+		
 		if(global) globalTable[identifier] = value;
 		localTable[identifier] = value;
 	}
@@ -66,7 +76,6 @@ scopeValue scope::getSymbol(string identifier){
 	}
 }
 
-//print the local table entries
 void scope::printScope(){
 	int i;
 	cout << "\n" << endl;
@@ -74,10 +83,13 @@ void scope::printScope(){
 		cout << "|-";
 	cout << "|" << endl;
 
+	// Show the local symbol table entries
 	cout << "\nSCOPE: " << name << "\n\nLocal Symbol Table:" << endl;
 	map<string, scopeValue>::iterator it;
 	for(it = localTable.begin(); it != localTable.end(); it++){
 		cout << "id: " << it->first;
+		
+		// Display the symbol's type identifier
 		cout << "\ttype: ";
 		switch(it->second.type){
 			case TYPE_INTEGER:
@@ -102,6 +114,11 @@ void scope::printScope(){
 				cout << "Unknown";
 				break;
 		}
+		
+		// Display frame pointer offset for variables in the scope
+		if (it->second.type != TYPE_PROCEDURE) cout << "\nFPoffset: " << it->second.FPoffset;
+		
+		// Display all parameter types for procedure entries ex: Integer[5] In/Out
 		if(it->second.type == TYPE_PROCEDURE){
 			cout << "\n\tparameters:\n\t";
 			vector<scopeValue> Vec = it->second.arguments;		

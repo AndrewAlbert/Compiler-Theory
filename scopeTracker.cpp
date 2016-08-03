@@ -8,6 +8,7 @@ scopeTracker::scopeTracker(bool debug_input){
 	debug = debug_input;
 	tmpPtr = nullptr;
 	curPtr = nullptr;
+	outermost = nullptr;
 }
 
 scopeTracker::~scopeTracker(){
@@ -16,13 +17,16 @@ scopeTracker::~scopeTracker(){
 
 void scopeTracker::newScope(){
 	if(curPtr != nullptr){
+		//Add procedure scope
 		tmpPtr = curPtr;
-		curPtr = new scope();
+		curPtr = new scope(false);
 		curPtr->prevScope = tmpPtr;
 	}
 	else{
-		curPtr = new scope();
+		//Add program scope
+		curPtr = new scope(true);
 		curPtr->prevScope = tmpPtr;
+		outermost = curPtr;
 	}
 }
 
@@ -61,23 +65,38 @@ bool scopeTracker::prevAddSymbol(string identifier, scopeValue value, bool globa
 }
 
 //returns true if symbol exists and puts its table entry into &value
-bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
+bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool &global){
+	// Ensure there is actuall a scope to check
 	if(curPtr == nullptr) return false;
-	else tmpPtr = curPtr;
-	//check local symbols of current scope
-	bool found = tmpPtr->checkSymbol(identifier, false);
+	
+	// Check local symbols of current scope
+	bool found = curPtr->checkSymbol(identifier, false);
 	if(found){
-		value = tmpPtr->getSymbol(identifier);
+		global = false;
+		value = curPtr->getSymbol(identifier);
 		return true;
 	}
+	else{
+		found = outermost->checkSymbol(identifier, true);
+		if(found){
+			global = true;
+			value = outermost->getSymbol(identifier);
+			return true; 
+		}
+		else return false;
+	}
+/*
 	else if(tmpPtr->prevScope != nullptr){
 		tmpPtr = tmpPtr->prevScope;
 	}
 	else{
 		return false;
 	}
-	//check global symbols of all upper scopes
+	
+	
+	// Check global symbols of all upper scopes
 	while(tmpPtr != nullptr){
+		previousFrames++;
 		found = tmpPtr->checkSymbol(identifier, true);
 		if(found){
 			value = tmpPtr->getSymbol(identifier);
@@ -87,11 +106,17 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value){
 			if(tmpPtr->prevScope == nullptr) return false;
 			else tmpPtr = tmpPtr->prevScope;
 		}
-	}
+	}*/
 	return false;
 }
 
-void scopeTracker::ChangeScopeName(string &name){
+// Return the size in bytes of the current symbol table. This will give the call frame size needed to place the table's parent procedure with parameters and local variables.
+int scopeTracker::getFrameSize(){
+	return curPtr->totalBytes;
+}
+
+// Set scope name - useful for debugging
+void scopeTracker::ChangeScopeName(string name){
 	curPtr->setName(name);
 	return;
 }

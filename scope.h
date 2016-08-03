@@ -22,8 +22,9 @@ class scope
 		string name;
 		
 	public:
-		scope();
+		scope(bool programScope = false);
 		~scope();
+		int totalBytes;
 		
 		//pointer to parent scope one level up
 		scope* prevScope;

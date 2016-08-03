@@ -14,6 +14,7 @@ class scopeTracker
 	private:
 		scope* curPtr;
 		scope* tmpPtr;
+		scope* outermost;
 		bool debug;
 	public:
 		scopeTracker(bool debug_input);
@@ -23,8 +24,9 @@ class scopeTracker
 		bool addSymbol(string identifier, scopeValue value, bool global);
 		//identical to addSymbol, but for one scope level up. Used to add procedure declaration to its parent scope and own scope
 		bool prevAddSymbol(string identifier, scopeValue value, bool global);
-		bool checkSymbol(string identifier, scopeValue &value);
-		void ChangeScopeName(string &name);
+		bool checkSymbol(string identifier, scopeValue &value, bool &global);
+		void ChangeScopeName(string name);
+		int getFrameSize();
 };
 
 #endif
