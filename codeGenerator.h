@@ -145,6 +145,7 @@ class codeGenerator
 		int AddStringHeap( string str );
 		void buildHeap();
 		void WriteRuntime();
+		string branchTableLabelTrue(int id, bool cond);
 };
 
 #endif

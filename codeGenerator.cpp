@@ -33,8 +33,8 @@ codeGenerator::~codeGenerator(){
 	else if( oFile != nullptr ){ 
 			fclose( oFile );
 	//Remove the generated file if there was an error
-			if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
 	}
+	if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
 }
 
 // Stops code generation from occuring if an error occurs in parsing
@@ -888,14 +888,22 @@ void codeGenerator::createEntry( int lPos, int uPos ){
 	else{
 		int mPos = ( lPos + uPos )/2;
 		int key = mPos;
+		string branchTrue = branchTableLabelTrue(mPos, true);
+		string branchFalse = branchTableLabelTrue(mPos, false);
+
 		fprintf( oFile, "iReg[0] = %d;\n", key );
 		fprintf( oFile, "iReg[0] = TP_reg > iReg[0];\n" );
-		fprintf( oFile, "if( iReg[0] ){\n" );
+		fprintf( oFile, "if( iReg[0] ) goto %s;\n", branchTrue.c_str() );
+		fprintf( oFile, "goto %s;\n", branchFalse.c_str() );
+		fprintf( oFile, "\n%s:\n", branchTrue.c_str() );
 		createEntry( mPos + 1, uPos );
-		fprintf( oFile, "}\n" );
-		comment("Else TP <= iReg[0]");
+		fprintf( oFile, "\n%s:\n", branchFalse.c_str() );
 		createEntry( lPos, mPos );
 		return;
 	}
 }
 
+string codeGenerator::branchTableLabelTrue(int id, bool cond){
+	if( cond ) return "Branch_Greater_" + to_string(id);
+	else return "Branch_Less_or_Equal_" + to_string(id);
+}
