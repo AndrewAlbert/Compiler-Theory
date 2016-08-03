@@ -50,7 +50,7 @@ int main(int argc, char **argv){
 
 	scanner->token = token;
 	//Initialize scanner, then begin parsing if there are no errors
-	if(scanner->InitScanner(filename, false)){
+	if(scanner->InitScanner(filename, debug)){
 		*token = scanner->getToken();
 		gen->attachOutputFile( (filename) + ".c" );
 		Parser parser(token, scanner, scopes, gen);

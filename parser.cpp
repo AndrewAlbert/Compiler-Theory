@@ -588,7 +588,7 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 			if( it != procValue.arguments.end() ){
 				if( it->paramType == TYPE_PARAM_OUT ){
 					outArg = true;
-					cout << it->paramType << endl;
+					//cout << it->paramType << endl;
 				}
 				else outArg = false;
 			}
@@ -677,13 +677,13 @@ bool Parser::Assignment(string &id){
 			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
 		// GEN: Move expression result to MM
-		cout << "Reg to MM assignment" << endl;
-		cout << "\ttype: " << type << endl;
-		cout << "\tdtype: " << dType << endl;
-		cout << "\tsize: " << size << endl;
-		cout << "\tdsize: " << dSize << endl;
+		//cout << "Reg to MM assignment" << endl;
+		//cout << "\ttype: " << type << endl;
+		//cout << "\tdtype: " << dType << endl;
+		//cout << "\tsize: " << size << endl;
+		//cout << "\tdsize: " << dSize << endl;
 		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal, indirect, indirect_type );
-		cout << "Done Reg to MM" << endl;
+		//cout << "Done Reg to MM" << endl;
 		return true;
 	}
 	else{

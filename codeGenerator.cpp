@@ -30,10 +30,10 @@ codeGenerator::~codeGenerator(){
 		footer();
 		fclose( oFile );
 	}
-	else{
-		fclose( oFile );
+	else if( oFile != nullptr ){ 
+			fclose( oFile );
 	//Remove the generated file if there was an error
-		if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
+			if( ContinueToGenerate == false && outputName.compare("") != 0 ) remove(outputName.c_str());
 	}
 }
 
@@ -64,6 +64,7 @@ bool codeGenerator::attachOutputFile(string filename){
 }
 
 bool codeGenerator::testOutFile(){
+	if( oFile == nullptr ) return false;
 	if( ferror(oFile) ) return false;
 	else return true;
 }
@@ -402,16 +403,16 @@ string codeGenerator::VALtoREG( string val, int type ){
 	string reg;
 	comment("Constant Value to Register");
 	reg = newRegister( type );
-	cout << "val: " << val << " to " << reg << endl;
+	//cout << "val: " << val << " to " << reg << endl;
 	
-	cout << "Val to reg " << type << endl;
+	//cout << "Val to reg " << type << endl;
 	pushStack( reg, 'E', type );
 
 	if(type == TYPE_STRING){
 		val = to_string( AddStringHeap( val ) );
 	}
 	writeLine( reg + " = " + val + ";");
-	cout << "Done val to reg" << endl;
+	//cout << "Done val to reg" << endl;
 	return reg;
 }
 
@@ -419,7 +420,7 @@ string codeGenerator::VALtoREG( string val, int type ){
 int codeGenerator::AddStringHeap( string str ){
 	if( !ShouldGenerate() ) return -1;
 	HeapSize += ( str.size() + 1);
-	cout << "string: " << str << " size: " << str.size() << endl;
+	//cout << "string: " << str << " size: " << str.size() << endl;
 	stringEntry.MMlocation = HeapSize;
 	stringEntry.contents = str;
 	string_heap.push(stringEntry);
@@ -522,7 +523,7 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 	if( memSize == 0 ) memSize++;
 	
 	for( index = 0; index < regSize; index++ ){
-		cout << "index " << index << " / regSize" << regSize<<endl;
+		//cout << "index " << index << " / regSize" << regSize<<endl;
 		reg = popStack('E', regType);
 		pushStack( reg, 'R', regType );
 	}
@@ -530,7 +531,7 @@ string codeGenerator::reg2mm(int regType, int memType, int regSize, int memSize,
 	
 	if( indirect ){
 		if(savedArgument.set == false) cout << "not a saved argument" << endl;
-		cout << "indirect"<<endl;
+		//cout << "indirect"<<endl;
 		reg = popStack('R', regType);
 		indirect_reg = popStack('E', indirect_type);
 		comment("indirect off " + indirect_reg);
@@ -681,7 +682,7 @@ void codeGenerator::setOutputArgument( scopeValue value, bool isGlobal, int inde
 	savedArgument.offset = value.FPoffset;
 	savedArgument.isGlobal = isGlobal;
 	savedArgument.set = true;
-	cout << "Set Output Argument\n\ttype: " << savedArgument.type <<"\n\tsize: " << savedArgument.size << "\n\tindirect: " << savedArgument.indirect << endl;
+	//cout << "Set Output Argument\n\ttype: " << savedArgument.type <<"\n\tsize: " << savedArgument.size << "\n\tindirect: " << savedArgument.indirect << endl;
 }
 
 // Set the invalid value of savedArgument to indicate for OUT arguments that do not have a valid memory location
@@ -693,7 +694,7 @@ void codeGenerator::invalidateArgument(){
 
 void codeGenerator::pushArgument( int &SPoffset, int paramType){
 	if( !ShouldGenerate() ) return;
-	cout << "Push argument:" << endl;
+	//cout << "Push argument:" << endl;
 	savedArgument.paramType = paramType;
 	if( savedArgument.paramType == TYPE_PARAM_IN || savedArgument.paramType == TYPE_PARAM_INOUT ){
 		argListStack.push( savedArgument );
@@ -703,19 +704,19 @@ void codeGenerator::pushArgument( int &SPoffset, int paramType){
 
 	if(savedArgument.paramType == TYPE_PARAM_IN || savedArgument.paramType == TYPE_PARAM_INOUT){
 		comment("Push argument");
-		cout << "Reg2MM" << endl;
+		//cout << "Reg2MM" << endl;
 		if( savedArgument.index < 0 ){
-			cout << "Index < 0" << endl;
+			//cout << "Index < 0" << endl;
 			reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, SPoffset, savedArgument.isGlobal, false, TYPE_INTEGER, true);
 		}
 		else{
 			reg2mm(savedArgument.type, savedArgument.type, 1, 1, SPoffset, savedArgument.isGlobal, false, TYPE_INTEGER, true);
 		}
-		cout << "Indirect: " << savedArgument.indirect << endl;
+		/*cout << "Indirect: " << savedArgument.indirect << endl;
 		cout << "Saved size: " << savedArgument.size << endl;
 		cout << "Saved type: " << savedArgument.type << endl;
 		cout << "SP offset: " << SPoffset << endl;
-		cout << "isGlobal: " << savedArgument.isGlobal << endl;
+		cout << "isGlobal: " << savedArgument.isGlobal << endl;*/
 	}
 	else{
 		//cout << "pop PARAM_OUT" << endl;
@@ -734,7 +735,7 @@ void codeGenerator::popArguments(int SPoffset){
 	// Decrement offset by one since it currently represents the location to place the next argument (if one exists)	
 	//SPoffset -= 1;
 	while( argListStack.size() != 0 ){
-		cout << "\nArg List size: " << argListStack.size() << endl;
+		//cout << "\nArg List size: " << argListStack.size() << endl;
 		savedArgument = argListStack.top();
 		argListStack.pop();
 		// TODO: Check this, may be incorrect
@@ -744,13 +745,13 @@ void codeGenerator::popArguments(int SPoffset){
 		else{
 			SPoffset -= 1;
 		}
-		cout << "SPoffset = " << SPoffset << endl;
+		//cout << "SPoffset = " << SPoffset << endl;
 
 		if( savedArgument.paramType == TYPE_PARAM_OUT || savedArgument.paramType == TYPE_PARAM_INOUT ){
 			if( savedArgument.invalid ) cout << "invalid output argument, code generation will continue" << endl;
 			else{
 				comment("Pop argument.");
-				cout << "Pop Argument" << endl;
+				//cout << "Pop Argument" << endl;
 				mm2reg(savedArgument.type, savedArgument.size, SPoffset, false, savedArgument.index, false, TYPE_INTEGER, true );
 				reg2mm(savedArgument.type, savedArgument.type, savedArgument.size, savedArgument.size, savedArgument.offset, savedArgument.isGlobal);
 			}

@@ -11,7 +11,7 @@ Scanner::Scanner(){
 
 //Destructor - close input file
 Scanner::~Scanner(){
-	fclose(fPtr);
+	if(fPtr != nullptr) fclose(fPtr);
 }
 
 bool Scanner::InitScanner(string filename, bool debug_input){

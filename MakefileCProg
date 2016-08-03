@@ -1,6 +1,6 @@
 CC = gcc
-file = testPgms/correct/test_program_array.src.c
-ofile = testarray
+file = testPgms/correct/test1.src.orig.c
+ofile = test1orig
 lib = runtime.c
 all:
 	$(CC) $(file) $(lib) -o $(ofile) 
