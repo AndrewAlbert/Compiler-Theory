@@ -90,7 +90,7 @@ void codeGenerator::header(){
 	
 	comment("Include runtime functions\n");
 	
-	fprintf( oFile, "extern void handleBool( int val );\n" );
+	fprintf( oFile, "extern void handleBoolOp( int val1, int val2 );\n" );
 	fprintf( oFile, "extern int getBool();\n" );
 	fprintf( oFile, "extern int getInteger();\n" );
 	fprintf( oFile, "extern float getFloat();\n" );
@@ -221,7 +221,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 	if( !ShouldGenerate() ) return "";
 	string lhs, rhs, result;
 	int i, type_result;
-	
+	bool checkBool = false;
 	// Ensure sizes are at least 1 so that loops will execute for scalars
 	if( size_left == 0 ) size_left++;
 	if( size_right == 0 ) size_right++;
@@ -237,6 +237,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 		}
 		else if( ( type_left == TYPE_BOOL ) || ( type_right == TYPE_BOOL ) ){
 			type_result = TYPE_BOOL;
+			if( (type_left == TYPE_INTEGER ) || (type_right == TYPE_INTEGER) ) checkBool = true;
 		}
 		else type_result = TYPE_INTEGER;
 	}
@@ -281,6 +282,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 			lhs = popStack('L', type_left);
 			result = newRegister(type_result);
 			pushStack( result, 'E', type_result );
+			if(checkBool) fprintf( oFile, "   handleBoolOp( %s, %s );\n", lhs.c_str(), rhs.c_str() );
 			fprintf( oFile, "   %s = %s %s %s;\n", result.c_str(), lhs.c_str(), op.c_str(), rhs.c_str() );
 		}
 	}
@@ -295,6 +297,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 			lhs = popStack('L', type_left);
 			result = newRegister(type_result);
 			pushStack( result, 'E', type_result );
+			if(checkBool) fprintf( oFile, "   handleBoolOp( %s, %s );\n", lhs.c_str(), rhs.c_str() );
 			fprintf( oFile, "   %s = %s %s %s;\n", result.c_str(), lhs.c_str(), op.c_str(), rhs.c_str() );
 		}
 	}
@@ -309,6 +312,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 			rhs = popStack('R', type_right);
 			result = newRegister(type_result);
 			pushStack( result, 'E', type_result );
+			if(checkBool) fprintf( oFile, "   handleBoolOp( %s, %s );\n", lhs.c_str(), rhs.c_str() );
 			fprintf( oFile, "   %s = %s %s %s;\n", result.c_str(), lhs.c_str(), op.c_str(), rhs.c_str() );
 		}
 	}
@@ -318,6 +322,7 @@ string codeGenerator::evalExpr( string op, int size_left, int size_right, int ty
 		lhs = popStack('E', type_left);
 		result = newRegister(type_result);
 		pushStack( result, 'E', type_result );
+		if(checkBool) fprintf( oFile, "   handleBoolOp( %s, %s );\n", lhs.c_str(), rhs.c_str() );
 		fprintf( oFile, "   %s = %s %s %s;\n", result.c_str(), lhs.c_str(), op.c_str(), rhs.c_str() );
 	}
 	return result;

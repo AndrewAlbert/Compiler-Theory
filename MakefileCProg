@@ -1,6 +1,0 @@
-CC = gcc
-file = testPgms/correct/test1.src.orig.c
-ofile = test1orig
-lib = runtime.c
-all:
-	$(CC) $(file) $(lib) -o $(ofile) 

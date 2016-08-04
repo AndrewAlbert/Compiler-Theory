@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-void handleBool( int val ){
-	if( val != 0 && val != 1 ){
-		printf("Runtime Error: integer %d is not compatible with boolean values.\n", val);
+void handleBoolOp( int val1, int val2 ){
+	if( (val1 != 0 && val1 != 1) || (val2 != 0 && val2 != 1) ){
+		printf("Runtime Error: numbers %d and %d are not compatible with boolean operations.\n", val1, val2);
 		exit(EXIT_FAILURE);
 	}
 	else return;
@@ -13,7 +13,10 @@ void handleBool( int val ){
 int getBool(){
 	int val;
 	scanf("%d", &val);
-	handleBool( val );
+	if( val!= 0 && val != 1 ){
+		printf("Runtime Error: %d is not a boolean value\n", val);
+		exit(EXIT_FAILURE);
+	}
 	return val;
 }
 
@@ -41,7 +44,10 @@ char getChar(){
 }
 
 void putBool( int val ){
-	handleBool( val );
+	if( val!= 0 && val != 1 ){
+		printf("Runtime Error: %d is not a boolean value\n", val);
+		exit(EXIT_FAILURE);
+	}
 	printf("%d", val);
 	return;
 }
