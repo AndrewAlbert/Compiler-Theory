@@ -27,10 +27,10 @@ Parser::Parser(token_type* tokenPtr, Scanner* scannerPtr, scopeTracker* scopes, 
 	Scopes = scopes;
 	scanner = scannerPtr;
 	generator = genPtr;
-	warning = false;
-	error = false;
 	textLine = "";
 	currentLine = 0;
+	warning = false;
+	error = false;
 	lineError = false;
 	outArg = false;
 	
@@ -49,16 +49,16 @@ Parser::Parser(token_type* tokenPtr, Scanner* scannerPtr, scopeTracker* scopes, 
 
 }
 
+// Destructor
 Parser::~Parser(){
-	//set all pointers to nullptr
+	// set all pointers to nullptr
 	token = nullptr;
 	scanner = nullptr;
 	Scopes = nullptr;
 	generator = nullptr;
-	outArg = false;
 }
 
-//Report error and terminate parsing.
+// Report fatal error and terminate parsing.
 void Parser::ReportFatalError(string message){
 	generator->stopCodeGeneration();
 	error_queue.push("Fatal Error: line - " + to_string(currentLine) + "\n\t" + message + "\n\tFound: " + textLine + " " + token->ascii);
@@ -86,7 +86,7 @@ void Parser::ReportLineError(string message, bool skipSemicolon = true){
 	bool getNext = true;
 	while(getNext){
 		textLine.append(" " + token->ascii);
-		//attempt to resync for structure keywords
+		// attempt to resync for structure keywords
 		if(skipSemicolon){
 			if( token->type == T_SEMICOLON){
 				*token = scanner->getToken();
@@ -124,7 +124,7 @@ void Parser::ReportWarning(string message){
 	return;
 }
 
-//display all of the stored warnings after parsing is complete or a fatal error occurs
+// Display all of the stored warnings/errors after parsing is complete or a fatal error occurs
 void Parser::DisplayErrorQueue(){
 	if(!error_queue.empty())
 		cout << "\nWarnings / Errors:\n" << endl;
@@ -137,7 +137,7 @@ void Parser::DisplayErrorQueue(){
 	return;
 }
 
-//check if current token is the correct type, if so get next
+// Check if current token is the correct type, if so get next
 bool Parser::CheckToken(int type){
 	//skip all comment tokens
 	while (token->type == T_COMMENT){
@@ -150,11 +150,6 @@ bool Parser::CheckToken(int type){
 	}
 	//check that current token matches input type, if so move to next token
 	if(token->type == type){
-		//handles line error checks for semicolons.
-		/*if(type == T_SEMICOLON && lineError){
-			lineError = false;
-			return true;
-		}*/
 		textLine.append(" " + token->ascii);
 		*token = scanner->getToken();
 		return true;
@@ -177,7 +172,7 @@ void Parser::declareRunTime(){
 	procVal.type = TYPE_PROCEDURE;
 	procVal.paramType = TYPE_PARAM_NULL;
 	
-	//input / output parameter of the procedure
+	// input / output parameter of the runtime procedure
 	scopeValue inputVal;
 	inputVal.arguments.clear();
 	
@@ -216,7 +211,6 @@ void Parser::Program(){
 	if( CheckToken(T_EOF) ) Scopes->exitScope(); //exit program scope once program ends
 		
 	else ReportError("Found some tokens remaining in file when end of program was expected");
-	//generator->footer();
 	return;
 }
 
@@ -259,7 +253,7 @@ bool Parser::ProgramBody(){
 			else if( !CheckToken(T_SEMICOLON) ) ReportLineError("expected ';' after variable declaration in procedure", true);
 		}
 		if(CheckToken(T_BEGIN)){
-			// GEN: Place label to procedure entry
+			// GEN: Place label to procedure entry and set the Stack Pointer
 			generator->placeLabel(labelBegin);
 			generator->setSPfromFP( Scopes->getFrameSize() );
 			//reset resync for statements
@@ -304,8 +298,9 @@ bool Parser::Declaration(bool &procDec){
 	string id;
 	scopeValue newSymbol;
 	
-	//ensure that the arguments member and paramType are both cleared before starting. None of these cases will set paramType.
-	//ProcedureDeclaration will set the arguments based on the procedure's parameters
+	/* Ensure that the arguments member and paramType are both cleared before starting. 
+	 * None of these cases will set paramType, that will be set later
+	 * ProcedureDeclaration will set the arguments based on the procedure's parameters. */
 	newSymbol.arguments.clear();
 	newSymbol.paramType = TYPE_PARAM_NULL;
 	
@@ -321,7 +316,7 @@ bool Parser::Declaration(bool &procDec){
 		return true;
 	}
 	else if( VariableDeclaration(id, newSymbol) ){
-		//Add symbol to current scope. VariableDeclaration will assign the symbol's type and size members.
+		//Add symbol to current scope. VariableDeclaration will pass the symbol's type and size members.
 		Scopes->addSymbol(id, newSymbol, global);
 		return true;
 	}
@@ -339,8 +334,7 @@ bool Parser::VariableDeclaration(string &id, scopeValue &varEntry){
 	else{
 		//get variable identifier
 		if( Identifier(id) ){
-			//get variable identifier
-			//get size for array variables
+			// Get size for array variable declarations
 			if(CheckToken(T_LBRACKET)){
 				if(CheckToken(TYPE_INTEGER)){
 					varEntry.size = token->val.intValue;
@@ -384,10 +378,6 @@ bool Parser::TypeMark(int &type){
 //<procedure_declaration> ::= <procedure_header><procedure_body>
 bool Parser::ProcedureDeclaration(string &id, scopeValue &procDeclaration, bool global){
 	//Get Procedure Header
-	procDeclaration.retAddressOffset = 0;
-	procDeclaration.bytes += 1;
-	procDeclaration.prevFrameOffset = procDeclaration.bytes;
-	procDeclaration.bytes += 1;
 	if( ProcedureHeader(id, procDeclaration, global) ){
 		if( ProcedureBody() ) return true;
 		else{
@@ -412,7 +402,7 @@ bool Parser::ProcedureHeader(string &id, scopeValue &procDeclaration, bool globa
 		if( Identifier(id) ){
 			Scopes->ChangeScopeName(id);
 			
-			// GEN: Get unique label from codeGenerator to add procedure entry
+			// Get unique label from code generator and place at the start of the procedure
 			procDeclaration.CallLabel = generator->newLabel( "Procedure_" + id );
 			generator->placeLabel( procDeclaration.CallLabel );
 		
@@ -469,7 +459,7 @@ bool Parser::ProcedureBody(){
 				}
 				if( CheckToken(T_END) ){
 
-					// GEN: add end label and return
+					// Add label for procedure end and return
 					string labelEnd;
 					labelEnd = generator->newLabel("Procedure_End");
 					generator->placeLabel( labelEnd );
@@ -512,12 +502,13 @@ bool Parser::ProcedureCall(string id){
 	scopeValue procedureCall;
 	bool isGlobal;
 	int offset = 2;
+	bool found;
 	
-	//ensure an id was found in the assignment statement check called right before ProcedureCall
+	//ensure an id was found in the assignment statement check called right before ProcedureCall, otherwise return false
 	if( id == "" ) return false;
 	
 	// Get procedure's declared information from scope table
-	bool found = Scopes->checkSymbol(id, procedureCall, isGlobal);
+	found = Scopes->checkSymbol(id, procedureCall, isGlobal);
 	
 	//get argument list used in the procedure call
 	if( CheckToken(T_LPAREN) ){
@@ -542,7 +533,8 @@ bool Parser::ProcedureCall(string id){
 		if( (it1 != argList.end()) || (it2 != procedureCall.arguments.end()) || (!match) ){
 			ReportError("Procedure call argument list does not match declared parameter list.");
 		}
-		// GEN: Set procedure call, then pop arguments after call and reset the FP and SP
+		
+		// Set procedure call, then pop arguments after call and reset the Frame and Stack pointers
 		generator->callProcedure( procedureCall, id);
 		generator->setSPfromFP( Scopes->getFrameSize() );
 		generator->popArguments( offset );
@@ -569,12 +561,12 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 	argEntry.arguments.clear();
 	argEntry.paramType = TYPE_PARAM_NULL;
 
-	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vectorm
+	//For each comma-separated expression, store the type and size values, in the order encountered, in the 'list' vector
 	vector<scopeValue>::iterator it = procValue.arguments.begin();
 	if( it != procValue.arguments.end() ){
 		if( it->paramType == TYPE_PARAM_OUT) outArg = true;
 	}
-	//generator->resetArgument();
+	
 	if( Expression(argEntry.type, argEntry.size) ){
 		// GEN: add arguments from register to correct frame
 		
@@ -584,17 +576,15 @@ bool Parser::ArgumentList(vector<scopeValue> &list, scopeValue procValue, int &o
 		
 		list.push_back(argEntry);
 		while( CheckToken(T_COMMA) ){
-			//generator->resetArgument();
 			if( it != procValue.arguments.end() ){
 				if( it->paramType == TYPE_PARAM_OUT ){
 					outArg = true;
-					//cout << it->paramType << endl;
 				}
 				else outArg = false;
 			}
 			if( Expression(argEntry.type, argEntry.size) ){
 				list.push_back(argEntry);
-				// GEN: add arguments from register to correct frame
+				// Add arguments from register to correct frame
 				generator->pushArgument(offset, it->paramType);
 				++it;
 			}
@@ -633,8 +623,10 @@ bool Parser::Parameter(scopeValue &procEntry){
 		
 		//add parameter to current scope after updating the parameter type
 		Scopes->addSymbol(id, paramEntry, false);
+		
 		//add to current procedure declaration's parameter list
 		procEntry.arguments.push_back(paramEntry);
+		
 		return true;
 	}
 	else return false;
@@ -665,6 +657,7 @@ bool Parser::Assignment(string &id){
 	bool isGlobal;
 	bool indirect;
 	int indirect_type;
+	
 	//Determine destination if this is a valid assignment statement
 	if( !Destination(id, dType, dSize, destinationValue, found, isGlobal, indirect, indirect_type) ) return false;
 	
@@ -676,14 +669,8 @@ bool Parser::Assignment(string &id){
 			if(size != dSize && (size > 1) && (dSize <= 1)) ReportError("Bad assignment, size of expression must match destination's size.");
 			if( (type != dType) && ( (!isNumber(dType)) || (!isNumber(type)) ) ) ReportError("Bad assignment, type of expression must match destination");
 		}
-		// GEN: Move expression result to MM
-		//cout << "Reg to MM assignment" << endl;
-		//cout << "\ttype: " << type << endl;
-		//cout << "\tdtype: " << dType << endl;
-		//cout << "\tsize: " << size << endl;
-		//cout << "\tdsize: " << dSize << endl;
+		// Move expression result from register(s) to MM using one of the various addressing modes.
 		generator->reg2mm( type, dType, size, dSize, destinationValue.FPoffset, isGlobal, indirect, indirect_type );
-		//cout << "Done Reg to MM" << endl;
 		return true;
 	}
 	else{
@@ -702,8 +689,9 @@ bool Parser::Destination(string &id, int &dType, int &dSize, scopeValue &destina
 
 	if( Identifier(id) ){
 		found = Scopes->checkSymbol(id, destinationValue, isGlobal);
-		//prevFrames = previousFrames;
-		//if a procedure is found, return false. This can't be a destination and the found id will be passed to a procedure call
+
+		/* if a procedure is found, return false. 
+		 *This can't be a destination and the found id will be passed to a procedure call */
 		if( (found) && (destinationValue.type == TYPE_PROCEDURE) ) return false;
 		else if(!found){
 			ReportError("Destination: " + id + " was not declared in this scope");
@@ -786,7 +774,7 @@ bool Parser::IfStatement(){
 			}
 			if( !flag ) ReportError("expected at least one statement after 'then' in conditional statement");
 			
-			// GEN: goto end if
+			// goto end if after true statement
 			generator->branch(labelEnd);
 
 			/* Get statements to be evaluated if the statement's expression evaluates to false. 
@@ -802,7 +790,7 @@ bool Parser::IfStatement(){
 					}
 					/* check for correct closure of statement: 'end if' */
 					
-					// GEN: goto end if
+					// goto end if after else statement
 					generator->branch(labelEnd);
 
 					if( CheckToken(T_END) ){
@@ -815,7 +803,10 @@ bool Parser::IfStatement(){
 						resyncEnabled = false;
 						ReportLineError("Bad Line. Unable to find valid statement or 'else' or 'end' reserved keywords.");
 					}
-					else ReportFatalError("Parser resync failed. Unable to find valid statement, 'else' or 'end if' reserved keywords.");
+					else{
+						ReportFatalError("Parser resync failed. Unable to find valid statement, 'else' or 'end if' reserved keywords.");
+						return true;
+					}
 				}
 			}
 			/* check for correct closure of statement: 'end if' */
@@ -1182,24 +1173,23 @@ bool Parser::Factor(int &type, int &size){
 		else ReportFatalError("expected expression within parenthesis of factor");
 	}
 	else if( CheckToken(T_SUBTRACT) ){
-		// TODO: GEN: add negation of register
 		if( Integer() ){
 			type = TYPE_INTEGER;
 			size = 0;
-			generator->NegateTopRegister( type, size );
+			generator->NegateTopRegisters( type, size );
 			return true;
 		}
 		else if( Float() ){
 			type = TYPE_FLOAT;
 			size = 0;
-			generator->NegateTopRegister( type, size );
+			generator->NegateTopRegisters( type, size );
 			return true;
 		}
 		else if( Name(tempType, tempSize) ){
 			type = tempType;
 			size = tempSize;
 			if( !isNumber(type) ) ReportError(" negation '-' before variable name is valid only for integers and floats.");
-			generator->NegateTopRegister( type, size );
+			generator->NegateTopRegisters( type, size );
 			return true;
 		}
 		else return false;
@@ -1221,7 +1211,7 @@ bool Parser::Factor(int &type, int &size){
 	}
 	else if( String() ){
 		type = TYPE_STRING;
-		size = STRING_SIZE;
+		size = 0;
 		return true;
 	}
 	else if( Char() ){
@@ -1269,10 +1259,10 @@ bool Parser::Name(int &type, int &size){
 					ReportError("Array index must be a scalar numeric value.");
 				size = 0;
 				if( CheckToken(T_RBRACKET) ){
-					// GEN: save the variable <name> values in the generator to be used for arguments
-					generator->setOutputArgument( nameValue, isGlobal, 0, true );
+					// Save the variable <name> values in the generator to be used for arguments
+					generator->setArgument( nameValue, isGlobal, 0, true );
 					
-					// GEN: MM to REG for specific array element
+					// MM to REG for specific array element in IN/INOUT argument
 					if( !outArg ) generator->mm2reg(type, size, nameValue.FPoffset, isGlobal, -1, true, type2);
 					
 					return true;
@@ -1282,10 +1272,10 @@ bool Parser::Name(int &type, int &size){
 			else ReportFatalError("Expected expression between brackets.");
 		}
 		else{
-			// GEN: save the variable <name> values in the generator to be used for arguments
-			generator->setOutputArgument( nameValue, isGlobal);
+			// Save the variable <name> values in the generator to be used for arguments
+			generator->setArgument( nameValue, isGlobal);
 			
-			// GEN: MM to REG for scalars / full arrays
+			// MM to REG for scalars / full arrays that are IN/INOUT arguments
 			 if( !outArg ) generator->mm2reg(type, size, nameValue.FPoffset, isGlobal);				
 			return true;
 
@@ -1303,10 +1293,9 @@ bool Parser::Number(){
 
 // <integer> ::= [0-9][0-9]*
 bool Parser::Integer(){
-	// GEN: Constant to MM
 	string val = token->ascii;
 	if(CheckToken(TYPE_INTEGER)){
-		generator->VALtoREG( val, TYPE_INTEGER );
+		generator->val2reg( val, TYPE_INTEGER );
 		return true;
 	}
 	else return false;
@@ -1314,10 +1303,9 @@ bool Parser::Integer(){
 
 // <float> ::= [0-9][0-9]*[.[0-9]+]
 bool Parser::Float(){
-	// GEN: Constant to MM
 	string val = token->ascii;
 	if(CheckToken(TYPE_FLOAT)){
-		generator->VALtoREG( val, TYPE_FLOAT );
+		generator->val2reg( val, TYPE_FLOAT );
 		return true;
 	}
 	else return false;
@@ -1325,10 +1313,9 @@ bool Parser::Float(){
 
 // <string> ::= "[a-zA-Z0-9_,;:.']*"
 bool Parser::String(){
-	// GEN: Constant to MM
 	string val = token->ascii;
 	if(CheckToken(TYPE_STRING)){
-		generator->VALtoREG( val, TYPE_STRING );
+		generator->val2reg( val, TYPE_STRING );
 		return true;
 	}
 	else return false;
@@ -1336,10 +1323,9 @@ bool Parser::String(){
 
 // <char> ::= '[a-zA-Z0-9_,;:."]'
 bool Parser::Char(){
-	// Gen: Constant to MM
 	string val = token->ascii;
 	if(CheckToken(TYPE_CHAR)){
-		generator->VALtoREG( val, TYPE_CHAR);
+		generator->val2reg( val, TYPE_CHAR);
 		return true;
 	}
 	else return false;
@@ -1348,11 +1334,11 @@ bool Parser::Char(){
 bool Parser::Bool(){
 	string val = token->ascii;
 	if(CheckToken(T_TRUE)){
-		generator->VALtoREG( "1", TYPE_BOOL);
+		generator->val2reg( "1", TYPE_BOOL);
 		return true;
 	}
 	else if(CheckToken(T_FALSE)){
-		generator->VALtoREG( "0", TYPE_BOOL);
+		generator->val2reg( "0", TYPE_BOOL);
 		return true;
 	}
 	else return false;

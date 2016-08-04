@@ -12,9 +12,7 @@ using namespace std;
  *    arguments - vector of input arguments for procedures.
  *    paramType - parameter type IN | OUT | INOUT | NULL
  *    FPoffset - number of bytes offset from Frame Pointer on the stack
- *    prevFrameOffset - location to store pointer to previous stack frame
- *    retAddressOffset - location to store pointer to return address for procedure call in program
- *    bytes - total number of bytes in the procedure's frame
+ *    CallLabel - string of the procedure start label
  */
 struct scopeValue{
 	int type;
@@ -22,10 +20,7 @@ struct scopeValue{
 	
 	// Used solely for procedures
 	vector<scopeValue> arguments;
-	int prevFrameOffset;
-	int retAddressOffset;
 	string CallLabel;
-	int bytes;
 	
 	// Used solely for variables
 	int paramType;

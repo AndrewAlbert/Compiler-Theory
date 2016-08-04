@@ -58,5 +58,6 @@ int main(int argc, char **argv){
 	delete scanner;
 	delete scopes;
 	delete gen;
+
 	return 0;
 }

@@ -66,6 +66,4 @@
 #define T_EOF 349		//EOF
 #define T_UNKNOWN 350	//unknown token
 
-#define STRING_SIZE 0
-
 #endif

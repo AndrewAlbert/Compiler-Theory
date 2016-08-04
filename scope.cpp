@@ -36,7 +36,6 @@ bool scope::addSymbol(string identifier, bool global, scopeValue value){
 	else{
 		if(value.type != TYPE_PROCEDURE){
 			value.FPoffset = totalBytes;
-			
 			if( value.size > 0 ) totalBytes += value.size;
 			else totalBytes += 1;
 		}

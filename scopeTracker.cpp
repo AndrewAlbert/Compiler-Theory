@@ -85,28 +85,6 @@ bool scopeTracker::checkSymbol(string identifier, scopeValue &value, bool &globa
 		}
 		else return false;
 	}
-/*
-	else if(tmpPtr->prevScope != nullptr){
-		tmpPtr = tmpPtr->prevScope;
-	}
-	else{
-		return false;
-	}
-	
-	
-	// Check global symbols of all upper scopes
-	while(tmpPtr != nullptr){
-		previousFrames++;
-		found = tmpPtr->checkSymbol(identifier, true);
-		if(found){
-			value = tmpPtr->getSymbol(identifier);
-			return true;
-		}
-		else{
-			if(tmpPtr->prevScope == nullptr) return false;
-			else tmpPtr = tmpPtr->prevScope;
-		}
-	}*/
 	return false;
 }
 
