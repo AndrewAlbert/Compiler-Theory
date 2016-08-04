@@ -115,7 +115,7 @@ void scope::printScope(){
 		}
 		
 		// Display frame pointer offset for variables in the scope
-		if (it->second.type != TYPE_PROCEDURE) cout << "\nFPoffset: " << it->second.FPoffset;
+		if (it->second.type != TYPE_PROCEDURE) cout << "\n\tFP offset: " << it->second.FPoffset;
 		
 		// Display all parameter types for procedure entries ex: Integer[5] In/Out
 		if(it->second.type == TYPE_PROCEDURE){
